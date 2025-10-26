@@ -210,18 +210,42 @@
             }
         }
 
-        /* Buttons */
+        /* Buttons - Enhanced Touch Optimization */
         .btn {
             padding: 1.25rem 3rem;
             border: none;
-            border-radius: 4px;
+            border-radius: 8px;
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: opacity 0.2s;
+            transition: all 0.2s ease;
             text-decoration: none;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             min-height: 48px;
+            position: relative;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        
+        .btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.4);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .btn:active::after {
+            width: 300px;
+            height: 300px;
         }
 
         .btn-primary {
@@ -230,7 +254,13 @@
         }
 
         .btn-primary:hover {
-            opacity: 0.8;
+            opacity: 0.9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .btn-primary:active {
+            transform: scale(0.98);
         }
 
         .btn-secondary {
@@ -242,6 +272,12 @@
         .btn-secondary:hover {
             background: var(--primary-black);
             color: var(--primary-white);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .btn-secondary:active {
+            transform: scale(0.98);
         }
 
         .btn-large {
@@ -559,6 +595,31 @@
             overflow: hidden;
             margin: 2rem 0;
             position: relative;
+        }
+        
+        /* Full Screen Map for Browse Map Page */
+        #map-page {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 64px;
+            width: 100%;
+            height: calc(100vh - 64px);
+            z-index: 1;
+        }
+        
+        #map-page .map-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 0;
+            margin: 0;
         }
 
         @media (min-width: 768px) {
@@ -1286,6 +1347,81 @@
             }
         }
 
+        /* Enhanced Art Detail View - Responsive */
+        .art-detail-grid {
+            display: grid;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        @media (max-width: 768px) {
+            .art-detail-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .art-image-large {
+                width: 100%;
+                height: auto;
+                max-height: 400px;
+                object-fit: cover;
+                border-radius: 12px;
+            }
+            
+            .art-info {
+                padding: 2rem 1.5rem;
+                border-radius: 12px;
+            }
+        }
+        
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .art-detail-grid {
+                grid-template-columns: 6fr 4fr;
+                gap: 2rem;
+            }
+            
+            .art-image-large {
+                width: 100%;
+                height: auto;
+                max-height: 600px;
+                object-fit: cover;
+                border-radius: 12px;
+            }
+            
+            .art-info {
+                padding: 2rem;
+                border-radius: 12px;
+                position: sticky;
+                top: 2rem;
+                max-height: calc(100vh - 4rem);
+                overflow-y: auto;
+            }
+        }
+        
+        @media (min-width: 1025px) {
+            .art-detail-grid {
+                grid-template-columns: 1.2fr 1fr;
+                gap: 3rem;
+            }
+            
+            .art-image-large {
+                width: 100%;
+                height: auto;
+                max-height: 700px;
+                object-fit: cover;
+                border-radius: 12px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            }
+            
+            .art-info {
+                padding: 3rem;
+                border-radius: 12px;
+                position: sticky;
+                top: 2rem;
+                max-height: calc(100vh - 4rem);
+                overflow-y: auto;
+            }
+        }
+        
         /* Responsive - Mobile First Approach */
         @media (max-width: 768px) {
             body {
@@ -1797,11 +1933,27 @@
             }
         }
 
+        /* Desktop-only utilities */
+        @media (min-width: 1025px) {
+            .desktop-only {
+                display: block !important;
+            }
+        }
+        
+        @media (max-width: 1024px) {
+            .desktop-only {
+                display: none !important;
+            }
+        }
+        
         /* Toast Notification */
         .toast {
             position: fixed;
-            bottom: 2rem;
-            right: 2rem;
+            bottom: 5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            min-width: 250px;
+            text-align: center;
             background: var(--primary-black);
             color: var(--primary-white);
             padding: 1.5rem 2rem;
@@ -1811,15 +1963,51 @@
 
         @keyframes slideIn {
             from {
-                transform: translateX(400px);
+                transform: translateX(-50%) translateY(100px);
                 opacity: 0;
             }
             to {
-                transform: translateX(0);
+                transform: translateX(-50%) translateY(0);
                 opacity: 1;
             }
         }
+        
+        /* Accessibility - Focus Visible */
+        *:focus-visible {
+            outline: 3px solid var(--primary-black);
+            outline-offset: 2px;
+        }
+        
+        /* Keyboard navigation */
+        .btn:focus-visible,
+        .card:focus-visible,
+        a:focus-visible {
+            outline: 3px solid var(--primary-black);
+            outline-offset: 3px;
+        }
 
+        /* Loading States */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .loading-text {
+            color: var(--primary-black);
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
         /* Loading Spinner */
         .spinner {
             border: 3px solid var(--border-gray);
@@ -1895,6 +2083,27 @@
             }
         }
 
+        /* Success Animation */
+        @keyframes successBounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .success-icon {
+            animation: successBounce 0.6s ease;
+        }
+        
+        /* Error Shake Animation */
+        @keyframes errorShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        
+        .error-shake {
+            animation: errorShake 0.5s ease;
+        }
+        
         /* Empty State */
         .empty-state {
             text-align: center;
@@ -2392,6 +2601,7 @@
                         break;
                     case 'artist-profile':
                         appContainer.innerHTML = this.renderArtistProfile(data.artistId);
+                        setTimeout(() => this.initArtistMapPreview(data.artistId), 300);
                         break;
                     case 'popular-locations':
                         appContainer.innerHTML = this.renderPopularLocations();
@@ -2679,6 +2889,27 @@
                         </div>
                         
                         <div style="text-align: center; margin: 3rem 0; padding: 0 1rem;">
+                            <div style="background: var(--light-gray); padding: 2rem; border-radius: 12px; margin-bottom: 2rem;">
+                                <h3 style="color: var(--primary-black); margin-bottom: 1rem; font-size: clamp(1.25rem, 4vw, 1.5rem);">📍 How It Works</h3>
+                                <div style="display: grid; gap: 1rem; text-align: left; max-width: 600px; margin: 0 auto;">
+                                    <div style="display: flex; gap: 1rem; align-items: flex-start;">
+                                        <span style="background: var(--primary-black); color: var(--primary-white); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 600;">1</span>
+                                        <p style="margin: 0; color: var(--text-gray);">Check the map for nearby art</p>
+                                    </div>
+                                    <div style="display: flex; gap: 1rem; align-items: flex-start;">
+                                        <span style="background: var(--primary-black); color: var(--primary-white); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 600;">2</span>
+                                        <p style="margin: 0; color: var(--text-gray);">Visit the location and find the art</p>
+                                    </div>
+                                    <div style="display: flex; gap: 1rem; align-items: flex-start;">
+                                        <span style="background: var(--primary-black); color: var(--primary-white); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 600;">3</span>
+                                        <p style="margin: 0; color: var(--text-gray);">Scan the QR code to read the story</p>
+                                    </div>
+                                    <div style="display: flex; gap: 1rem; align-items: flex-start;">
+                                        <span style="background: var(--primary-black); color: var(--primary-white); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 600;">4</span>
+                                        <p style="margin: 0; color: var(--text-gray);">Thank the artist with a donation</p>
+                                    </div>
+                                </div>
+                            </div>
                             <h3 style="color: var(--primary-black); margin-bottom: 1rem; font-size: clamp(1.25rem, 4vw, 1.5rem);">Turn any walk into a treasure hunt</h3>
                             <p style="color: var(--text-gray); max-width: 600px; margin: 0 auto 2rem; line-height: 1.8;">Artists leave beautiful painted natural objects in coffee shops, parks, bookstores, and trails. Scan the QR code to discover the story and thank the artist.</p>
                             <button class="btn btn-primary" onclick="app.showPage('browse-map')" style="min-height: 48px;">Explore the Map</button>
@@ -2828,13 +3059,18 @@
 
             renderBrowseMap() {
                 return `
-                    <div class="container">
-                        <h1 style="margin-bottom: 1rem; text-align: center;">Browse Art Drops</h1>
-                        <p style="color: var(--text-gray); margin-bottom: 2rem; font-size: 1.1rem; text-align: center;">Explore art hidden in public spaces around the world</p>
-                        
-                        <div class="map-container" style="height: 600px;">
+                    <div id="map-page">
+                        <div class="map-container">
                             <div id="browseMap"></div>
                         </div>
+                        
+                        <!-- Floating Filter Chips -->
+                        <div style="position: absolute; top: 1rem; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; padding: 0 1rem;">
+                            <button class="btn btn-secondary" onclick="app.filterMapMarkers('all')" style="min-height: 36px; padding: 0.5rem 1rem; font-size: 0.85rem; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">All</button>
+                            <button class="btn btn-secondary" onclick="app.filterMapMarkers('active')" style="min-height: 36px; padding: 0.5rem 1rem; font-size: 0.85rem; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">Active</button>
+                            <button class="btn btn-secondary" onclick="app.filterMapMarkers('found')" style="min-height: 36px; padding: 0.5rem 1rem; font-size: 0.85rem; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">Found</button>
+                        </div>
+                    </div>
                         
                         <div style="margin-top: 3rem; padding: 2rem 1.5rem; background: var(--light-gray);">
                             <h3 style="margin-bottom: 2rem; text-align: center;">How to Find Art</h3>
@@ -3101,6 +3337,94 @@
                 `;
             },
 
+            renderArtistProfile(artistId) {
+                const artist = appState.artists.find(a => a.id === artistId);
+                if (!artist) {
+                    return '<div class="container"><p>Artist not found</p></div>';
+                }
+                
+                const artistDrops = appState.artDrops.filter(d => d.artistId === artistId);
+                const isFollowing = appState.currentUser && appState.follows.some(
+                    f => f.followerId === appState.currentUser.id && f.targetType === 'artist' && f.targetId === artistId
+                );
+                
+                return `
+                    <div class="container" style="max-width: 1200px;">
+                        <!-- Artist Header -->
+                        <div class="card" style="margin-bottom: 3rem;">
+                            <div class="card-content" style="padding: 2rem;">
+                                <div style="display: flex; gap: 2rem; align-items: flex-start; flex-wrap: wrap;">
+                                    <img src="${artist.profilePhoto}" alt="${artist.name}" style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-black);">
+                                    <div style="flex: 1; min-width: 250px;">
+                                        <h1 style="margin-bottom: 0.5rem;">${artist.name}</h1>
+                                        <p style="color: var(--text-gray); margin-bottom: 1rem;">${artist.city || 'Artist'}</p>
+                                        <p style="line-height: 1.8; margin-bottom: 1.5rem;">${artist.bio}</p>
+                                        
+                                        ${artist.instagram || artist.tiktok || artist.website ? `
+                                            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+                                                ${artist.instagram ? `<a href="https://instagram.com/${artist.instagram.replace('@', '')}" target="_blank" style="color: var(--primary-black); text-decoration: underline; font-size: 0.9rem;">Instagram</a>` : ''}
+                                                ${artist.tiktok ? `<a href="https://tiktok.com/${artist.tiktok}" target="_blank" style="color: var(--primary-black); text-decoration: underline; font-size: 0.9rem;">TikTok</a>` : ''}
+                                                ${artist.website ? `<a href="${artist.website}" target="_blank" style="color: var(--primary-black); text-decoration: underline; font-size: 0.9rem;">Website</a>` : ''}
+                                            </div>
+                                        ` : ''}
+                                        
+                                        ${appState.currentUser ? `
+                                            <button class="btn btn-${isFollowing ? 'secondary' : 'primary'}" onclick="app.toggleFollowArtist(${artist.id})" style="min-height: 48px; width: 100%; max-width: 300px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                                ${isFollowing ? 'Unfollow' : '<svg class="icon icon-small" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg> Follow'}
+                                            </button>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Stats -->
+                        <div class="stats-grid" style="margin-bottom: 3rem;">
+                            <div class="stat-card">
+                                <div class="stat-value">${artist.followerCount || 0}</div>
+                                <div class="stat-label">Followers</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value">${artistDrops.length}</div>
+                                <div class="stat-label">Total Drops</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value">$${artist.totalDonations.toFixed(2)}</div>
+                                <div class="stat-label">Total Donations</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value">${artistDrops.filter(d => d.status === 'active').length}</div>
+                                <div class="stat-label">Active Drops</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Art Drops -->
+                        <h2 style="margin-bottom: 2rem;">Art Drops (${artistDrops.length})</h2>
+                        ${artistDrops.length > 0 ? `
+                            <div class="grid grid-3">
+                                ${artistDrops.map(drop => this.renderDropCard(drop)).join('')}
+                            </div>
+                        ` : `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">🎨</div>
+                                <div class="empty-state-title">No art drops yet</div>
+                                <p class="empty-state-text">This artist hasn't dropped any art yet</p>
+                            </div>
+                        `}
+                        
+                        <!-- Map Preview -->
+                        ${artistDrops.length > 0 ? `
+                            <div style="margin-top: 3rem;">
+                                <h2 style="margin-bottom: 1rem;">All Drops on Map</h2>
+                                <div class="map-container" style="height: 400px;">
+                                    <div id="artistMapPreview"></div>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            },
+            
             renderArtStory(dropId) {
                 const drop = appState.artDrops.find(d => d.id === dropId);
                 const artist = appState.artists.find(a => a.id === drop.artistId);
@@ -3152,10 +3476,23 @@
                 `;
                 
                 return `
-                    <div class="container" style="max-width: 1000px;">
-                        <div class="art-detail-grid">
-                            <div>
-                                <img src="${drop.photoUrl}" alt="${drop.title}" class="art-image-large">
+                    <div class="container" style="max-width: 1200px;">
+                        <div class="art-detail-grid" style="align-items: start;">
+                            <div style="position: relative;">
+                                <img src="${drop.photoUrl}" alt="${drop.title}" class="art-image-large" style="display: block;">
+                                
+                                <!-- Image Actions for Desktop -->
+                                <div style="position: absolute; top: 1rem; right: 1rem; display: none;" class="desktop-only">
+                                    <button class="action-btn" onclick="app.openShareOverlay(${drop.id})" title="Share" style="margin-bottom: 0.5rem;">
+                                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="18" cy="5" r="3"/>
+                                            <circle cx="6" cy="12" r="3"/>
+                                            <circle cx="18" cy="19" r="3"/>
+                                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                             <div class="art-info">
                                 <span class="badge badge-${drop.status === 'active' ? 'active' : 'found'}">
@@ -3163,7 +3500,7 @@
                                 </span>
                                 <h1 style="margin: 1rem 0; font-size: 2rem;">${drop.title}</h1>
                                 
-                                <div class="artist-section" style="display: block;">
+                                <div class="artist-section" style="display: block; cursor: pointer;" onclick="app.showPage('artist-profile', {artistId: ${artist.id}})">
                                     <div style="display: flex; align-items: center; gap: 2rem; margin-bottom: 2rem;">
                                         ${artist.profilePhoto ? `<img src="${artist.profilePhoto}" alt="${artist.name}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary-black);">` : ''}
                                         <div>
@@ -3224,6 +3561,16 @@
                 </button>
                             </div>
                         </div>
+                        
+                        <!-- Related Art from Same Artist -->
+                        ${appState.artDrops.filter(d => d.artistId === drop.artistId && d.id !== drop.id).length > 0 ? `
+                            <div style="margin-top: 5rem;">
+                                <h2 style="margin-bottom: 2rem; text-align: center;">More from ${drop.artistName}</h2>
+                                <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem;">
+                                    ${appState.artDrops.filter(d => d.artistId === drop.artistId && d.id !== drop.id).slice(0, 3).map(relatedDrop => this.renderDropCard(relatedDrop)).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
                         
                         ${shareSection}
                         
@@ -4192,6 +4539,7 @@
 
             handleDropNewArt(e) {
                 e.preventDefault();
+                this.showLoadingOverlay('Creating your art drop...');
                 const formData = new FormData(e.target);
                 
                 const newDrop = {
@@ -4215,12 +4563,15 @@
                 appState.artDrops.push(newDrop);
                 appState.currentUser.activeDrops++;
                 
-                this.showPage('qr-tag-generator', { dropId: newDrop.id });
-                this.showToast('Art drop created! Generate your QR tag.');
+                setTimeout(() => {
+                    this.hideLoadingOverlay();
+                    this.showPage('qr-tag-generator', { dropId: newDrop.id });
+                }, 1500);
             },
 
             handleFoundSubmit(e, dropId) {
                 e.preventDefault();
+                this.showLoadingOverlay('Recording your find...');
                 const formData = new FormData(e.target);
                 const drop = appState.artDrops.find(d => d.id === dropId);
                 
@@ -4237,6 +4588,13 @@
                 drop.status = 'found';
                 drop.findDate = findEvent.findDate;
                 
+                // Simulate processing
+                setTimeout(() => {
+                    this.hideLoadingOverlay();
+                    this.showPage('donation-flow', { dropId });
+                }, 1000);
+                return;
+                
                 // Add to finder's collection if logged in as finder
                 if (appState.currentUser && appState.currentUser.userType === 'finder') {
                     if (!appState.currentUser.foundArt.includes(dropId)) {
@@ -4244,13 +4602,27 @@
                         appState.currentUser.totalFinds++;
                     }
                 }
-                
-                this.showToast('Find recorded! Thank you for sharing.');
-                this.showPage('donation-flow', { dropId });
             },
 
+            showLoadingOverlay(message = 'Loading...') {
+                const overlay = document.createElement('div');
+                overlay.className = 'loading-overlay';
+                overlay.id = 'loadingOverlay';
+                overlay.innerHTML = `
+                    <div class="spinner"></div>
+                    <div class="loading-text">${message}</div>
+                `;
+                document.body.appendChild(overlay);
+            },
+            
+            hideLoadingOverlay() {
+                const overlay = document.getElementById('loadingOverlay');
+                if (overlay) overlay.remove();
+            },
+            
             handleDonation(e, dropId) {
                 e.preventDefault();
+                this.showLoadingOverlay('Processing donation...');
                 const formData = new FormData(e.target);
                 const customAmount = parseFloat(formData.get('customAmount'));
                 const selectedBtn = document.querySelector('.donation-btn.selected');
@@ -4279,7 +4651,11 @@
                     drop.findEvents[drop.findEvents.length - 1].donated = true;
                 }
                 
-                this.showPage('thank-you', { dropId, amount });
+                // Simulate payment processing
+                setTimeout(() => {
+                    this.hideLoadingOverlay();
+                    this.showPage('thank-you', { dropId, amount });
+                }, 1500);
             },
 
             selectDonationAmount(amount) {
@@ -4552,7 +4928,7 @@
                             <div class="art-card-fullscreen" style="background-image: url('${drop.photoUrl}');" data-drop-id="${drop.id}">
                                 <!-- Top Overlay -->
                                 <div class="top-overlay">
-                                    <div class="artist-name-overlay">
+                                    <div class="artist-name-overlay" onclick="app.showPage('artist-profile', {artistId: ${drop.artistId}}); event.stopPropagation();" style="cursor: pointer;">
                                         <img src="${drop.artistPhoto}" alt="${drop.artistName}" class="artist-avatar-small">
                                         <div>
                                             <div class="artist-name-text">${drop.artistName}</div>
@@ -4703,7 +5079,7 @@
                     
                     <h2 class="overlay-title">${drop.title}</h2>
                     
-                    <div class="artist-info-section" onclick="app.showToast('Artist profile coming soon!')">
+                    <div class="artist-info-section" onclick="app.showPage('artist-profile', {artistId: ${drop.artistId}}); app.closeOverlay('detailsOverlay');" style="cursor: pointer;">
                         <img src="${drop.artistPhoto}" alt="${drop.artistName}" class="artist-profile-pic">
                         <div style="flex: 1;">
                             <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.25rem;">${drop.artistName}</div>
@@ -5358,6 +5734,14 @@
                         </div>
                     `);
                 });
+                    // Add click handler for markers
+                    map.on('popupopen', function() {
+                        // Ensure buttons in popups work
+                        const popupButtons = document.querySelectorAll('.leaflet-popup button');
+                        popupButtons.forEach(btn => {
+                            btn.style.cursor = 'pointer';
+                        });
+                    });
                 } catch (error) {
                     console.error('Error initializing browse map:', error);
                 }
