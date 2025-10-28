@@ -15,7 +15,8 @@ import {
     getFirestore, 
     collection, 
     addDoc, 
-    getDocs, 
+    getDocs,
+    getDoc,          // ← ADDED THIS - was missing!
     doc,
     setDoc,
     updateDoc,
@@ -23,6 +24,7 @@ import {
     where, 
     orderBy, 
     limit,
+    increment,       // ← ADDED THIS - needed for counters
     serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { 
@@ -32,7 +34,10 @@ import {
     getDownloadURL 
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
-// Firebase Config - REPLACE WITH YOURS
+// ============================================
+// FIREBASE CONFIGURATION
+// ============================================
+
 const firebaseConfig = {
   apiKey: "AIzaSyD2dBIb4rNczPQAxsyh-UkKSJrp0gLrnKA",
   authDomain: "art-drops-production.firebaseapp.com",
@@ -43,18 +48,39 @@ const firebaseConfig = {
   measurementId: "G-FKDW0NSDQY"
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
+// Initialize Firebase
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+const storage = getStorage(firebaseApp);
 
-// Keep your app working with existing sample data while Firebase is optional
-window.useFirebase = true; // Set to true when Firebase is configured
+console.log("✅ Firebase initialized successfully!");
+
+// ============================================
+// FIREBASE AUTH STATE LISTENER
+// ============================================
+
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        console.log("User signed in:", user.email);
+        await ensureUserDocument(user);
+        
+        // Update appState.currentUser when Firebase auth changes
+        appState.currentUser = {
+            id: user.uid,
+            name: user.displayName || user.email,
+            email: user.email,
+            profilePhoto: user.photoURL || '',
+            userType: 'artist'
+        };
+    } else {
+        console.log("User signed out");
+        appState.currentUser = null;
+    }
+});
 
 // ============================================
 // FIREBASE HELPER FUNCTIONS
-// Add these AFTER Firebase initialization
-// and BEFORE your app object starts
 // ============================================
 
 async function ensureUserDocument(user) {
@@ -63,7 +89,6 @@ async function ensureUserDocument(user) {
         const userSnap = await getDoc(userRef);
         
         if (!userSnap.exists()) {
-            // Create new user document
             console.log("Creating new user document for:", user.email);
             
             await setDoc(userRef, {
@@ -86,328 +111,419 @@ async function ensureUserDocument(user) {
                 createdAt: new Date().toISOString()
             });
             
-            console.log("User document created successfully!");
+            console.log("✅ User document created successfully!");
         } else {
-            console.log("User document already exists");
+            console.log("✅ User document already exists");
         }
         
         return userSnap;
     } catch (error) {
-        console.error("Error ensuring user document:", error);
+        console.error("❌ Error ensuring user document:", error);
         throw error;
     }
 }
- // ============================================
-        // DATA STRUCTURES (In-Memory Storage)
-        // ============================================
+
+async function loadFirebaseArtDrops(filters = {}) {
+    try {
+        const constraints = [];
         
-        const appState = {
-            currentUser: null,
-            currentPage: 'landing',
-            userLocation: null,
-            artists: [
-                {
-                    id: 1,
-                    name: 'Sarah Martinez',
-                    email: 'sarah@example.com',
-                    password: 'password',
-                    joinDate: '2024-09-15',
-                    totalDonations: 142.50,
-                    activeDrops: 6,
-                    instagram: '@sarahartdrops',
-                    tiktok: '@sarah.creates',
-                    website: 'https://sarahmartinez.art',
-                    bio: 'Finding beauty in nature\'s discarded treasures. Beach walker, sunset painter, coffee shop regular.',
-                    profilePhoto: 'https://i.pravatar.cc/200?img=1',
-                    city: 'Brooklyn, NY'
-                },
-                {
-                    id: 2,
-                    name: 'James River',
-                    email: 'james@example.com',
-                    password: 'password',
-                    joinDate: '2024-10-01',
-                    totalDonations: 98.75,
-                    activeDrops: 4,
-                    instagram: '@jamesriverart',
-                    facebook: 'https://facebook.com/jamesriverart',
-                    website: 'https://jamesriver.studio',
-                    bio: 'Desert wanderer painting stories on stones. Sedona sunsets captured on sandstone.',
-                    profilePhoto: 'https://i.pravatar.cc/200?img=12',
-                    city: 'Sedona, AZ'
-                },
-                {
-                    id: 3,
-                    name: 'Alex Park',
-                    email: 'alex@example.com',
-                    password: 'password',
-                    joinDate: '2024-08-20',
-                    totalDonations: 215.00,
-                    activeDrops: 9,
-                    instagram: '@alexparkart',
-                    tiktok: '@alex.drops',
-                    website: 'https://alexparkstudio.com',
-                    bio: 'Urban explorer hiding art in unexpected places. Driftwood sculptor, quote painter, joy spreader.',
-                    profilePhoto: 'https://i.pravatar.cc/200?img=5',
-                    city: 'Portland, OR'
-                }
-            ],
-            finders: [
-                {
-                    id: 3,
-                    name: 'Emily Chen',
-                    email: 'emily@example.com',
-                    password: 'password',
-                    userType: 'finder',
-                    foundArt: [1, 3],
-                    followedArtists: [1],
-                    followedLocations: [1, 3],
-                    totalFinds: 12,
-                    bio: 'Art hunter and coffee shop explorer',
-                    profilePhoto: 'https://i.pravatar.cc/200?img=32',
-                    city: 'Brooklyn, NY',
-                    joinDate: '2024-09-10'
-                },
-                {
-                    id: 4,
-                    name: 'Marcus Williams',
-                    email: 'marcus@example.com',
-                    password: 'password',
-                    userType: 'finder',
-                    foundArt: [2, 4],
-                    followedArtists: [2],
-                    followedLocations: [2],
-                    totalFinds: 8,
-                    bio: 'Trail runner discovering hidden treasures',
-                    profilePhoto: 'https://i.pravatar.cc/200?img=14',
-                    city: 'Denver, CO',
-                    joinDate: '2024-09-25'
-                }
-            ],
-            artDrops: [
-                {
-                    id: 1,
-                    artistId: 1,
-                    artistName: 'Sarah Martinez',
-                    title: 'Morning Coffee Shell',
-                    story: 'Found this perfect scallop shell during sunrise beach walk. Painted it with the colors of that magical morning sky.',
-                    photoUrl: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&h=1600&fit=crop',
-                    latitude: 40.7589,
-                    longitude: -73.9851,
-                    locationType: 'Coffee Shop',
-                    locationName: 'Central Perk Cafe, NYC',
-                    status: 'active',
-                    dateCreated: '2024-10-20',
-                    totalDonations: 23.50,
-                    foundCount: 0,
-                    findEvents: []
-                },
-                {
-                    id: 2,
-                    artistId: 2,
-                    artistName: 'James River',
-                    title: 'Desert Dreams',
-                    story: 'This red sandstone called to me from a canyon wall. I painted it with the spirit of the desert sunset.',
-                    photoUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&h=400&fit=crop',
-                    latitude: 34.8697,
-                    longitude: -111.7610,
-                    locationType: 'Trail',
-                    locationName: 'Sedona Red Rock Trail',
-                    status: 'found',
-                    dateCreated: '2024-10-18',
-                    findDate: '2024-10-24',
-                    finderMessage: 'This made my hike so special! Thank you!',
-                    totalDonations: 15.00,
-                    foundCount: 1,
-                    findEvents: [
-                        {
-                            id: 1,
-                            finderName: 'Sarah H.',
-                            message: 'This made my hike so special! Thank you!',
-                            findDate: '2024-10-24',
-                            donated: true
-                        }
-                    ]
-                },
-                {
-                    id: 3,
-                    artistId: 3,
-                    artistName: 'Alex Park',
-                    title: 'Page Turner',
-                    story: 'Driftwood from the Hudson, painted with literary quotes. Perfect for a bookstore hiding spot.',
-                    photoUrl: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=600&h=400&fit=crop',
-                    latitude: 40.7282,
-                    longitude: -73.9942,
-                    locationType: 'Bookstore',
-                    locationName: 'Shakespeare &amp; Co Books',
-                    status: 'active',
-                    dateCreated: '2024-10-19',
-                    totalDonations: 8.75,
-                    foundCount: 0,
-                    findEvents: []
-                },
-                {
-                    id: 4,
-                    artistId: 1,
-                    artistName: 'Sarah Martinez',
-                    title: 'Autumn Feather',
-                    story: 'Hawk feather painted with fall colors from Central Park. Left it where nature lovers gather.',
-                    photoUrl: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=1200&h=1600&fit=crop',
-                    latitude: 40.7829,
-                    longitude: -73.9654,
-                    locationType: 'Park',
-                    locationName: 'Central Park Bow Bridge',
-                    status: 'found',
-                    dateCreated: '2024-10-16',
-                    findDate: '2024-10-22',
-                    finderMessage: 'My daughter loved finding this! She\'s inspired to create her own art now.',
-                    totalDonations: 25.00,
-                    foundCount: 1,
-                    findEvents: [
-                        {
-                            id: 2,
-                            finderName: 'Jennifer M.',
-                            message: 'My daughter loved finding this! She\'s inspired to create her own art now.',
-                            findDate: '2024-10-22',
-                            donated: true
-                        }
-                    ]
-                },
-                {
-                    id: 5,
-                    artistId: 2,
-                    artistName: 'James River',
-                    title: 'Coffee Shop Companion',
-                    story: 'Small river rock painted as a tiny succulent. Perfect companion for your morning coffee ritual.',
-                    photoUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&h=400&fit=crop',
-                    latitude: 47.6062,
-                    longitude: -122.3321,
-                    locationType: 'Coffee Shop',
-                    locationName: 'Pike Place Coffee, Seattle',
-                    status: 'active',
-                    dateCreated: '2024-10-21',
-                    totalDonations: 0,
-                    foundCount: 0,
-                    findEvents: []
-                }
-            ],
-            locations: [
-                {
-                    id: 1,
-                    name: 'Westside Coffee',
-                    address: '123 West St',
-                    city: 'Brooklyn',
-                    state: 'NY',
-                    latitude: 40.7589,
-                    longitude: -73.9851,
-                    followerCount: 234,
-                    activeDropCount: 12,
-                    totalDropCount: 18,
-                    trending: true,
-                    distance: '0.3 miles',
-                    featuredPhotos: [
-                        'https://images.unsplash.com/photo-1582662104865-0a8b0c8f9832?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1560015534-cee980ba7e13?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=400&fit=crop'
-                    ],
-                    locationPhoto: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&h=600&fit=crop',
-                    recentDrops: [1]
-                },
-                {
-                    id: 2,
-                    name: 'Central Park',
-                    address: 'Central Park',
-                    city: 'New York',
-                    state: 'NY',
-                    latitude: 40.7829,
-                    longitude: -73.9654,
-                    followerCount: 456,
-                    activeDropCount: 28,
-                    totalDropCount: 45,
-                    trending: true,
-                    distance: '1.2 miles',
-                    featuredPhotos: [
-                        'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=400&fit=crop'
-                    ],
-                    locationPhoto: 'https://images.unsplash.com/photo-1519331379826-f10be5486c6f?w=800&h=600&fit=crop',
-                    recentDrops: [4]
-                },
-                {
-                    id: 3,
-                    name: 'Pike Place Coffee',
-                    address: '1st Ave',
-                    city: 'Seattle',
-                    state: 'WA',
-                    latitude: 47.6062,
-                    longitude: -122.3321,
-                    followerCount: 189,
-                    activeDropCount: 15,
-                    totalDropCount: 23,
-                    trending: false,
-                    distance: '1847 miles',
-                    featuredPhotos: [
-                        'https://images.unsplash.com/photo-1611688270284-b84259aa2d3c?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1509023464722-18d996393ca8?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1582662104865-0a8b0c8f9832?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=400&fit=crop'
-                    ],
-                    locationPhoto: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&h=600&fit=crop',
-                    recentDrops: [5]
-                },
-                {
-                    id: 4,
-                    name: 'Red Rock Trail',
-                    address: 'Trail Head',
-                    city: 'Sedona',
-                    state: 'AZ',
-                    latitude: 34.8697,
-                    longitude: -111.7610,
-                    followerCount: 312,
-                    activeDropCount: 22,
-                    totalDropCount: 35,
-                    trending: true,
-                    distance: '1654 miles',
-                    featuredPhotos: [
-                        'https://images.unsplash.com/photo-1509023464722-18d996393ca8?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1611688270284-b84259aa2d3c?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=400&h=400&fit=crop'
-                    ],
-                    locationPhoto: 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=800&h=600&fit=crop',
-                    recentDrops: [2]
-                },
-                {
-                    id: 5,
-                    name: 'Riverside Books',
-                    address: 'River St',
-                    city: 'Portland',
-                    state: 'OR',
-                    latitude: 45.5152,
-                    longitude: -122.6784,
-                    followerCount: 167,
-                    activeDropCount: 9,
-                    totalDropCount: 14,
-                    trending: false,
-                    distance: '2000 miles',
-                    featuredPhotos: [
-                        'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1560015534-cee980ba7e13?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1582662104865-0a8b0c8f9832?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=400&fit=crop'
-                    ],
-                    locationPhoto: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=800&h=600&fit=crop',
-                    recentDrops: [3]
-                }
-            ],
-            follows: [],
-            locationTypes: ['Coffee Shop', 'Bookstore', 'Park', 'Trail', 'Plaza', 'Mall', 'Library', 'Other'],
-            donationPresets: [1, 3, 5, 10],
-            platformCommission: 0.05
+        if (filters.status) {
+            constraints.push(where('status', '==', filters.status));
+        }
+        if (filters.artistId) {
+            constraints.push(where('artistId', '==', filters.artistId));
+        }
+        
+        constraints.push(orderBy('dateCreated', 'desc'));
+        constraints.push(limit(filters.limit || 50));
+        
+        const q = query(collection(db, 'artDrops'), ...constraints);
+        const snapshot = await getDocs(q);
+        
+        const artDrops = [];
+        snapshot.forEach(docSnap => {
+            artDrops.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        
+        console.log("✅ Loaded art drops from Firebase:", artDrops.length);
+        return artDrops;
+    } catch (error) {
+        console.error("❌ Error loading art drops:", error);
+        return [];
+    }
+}
+
+async function createFirebaseArtDrop(formData) {
+    try {
+        if (!auth.currentUser) {
+            throw new Error("Must be signed in to create art drop");
+        }
+        
+        const artData = {
+            artistId: auth.currentUser.uid,
+            artistName: auth.currentUser.displayName || 'Artist',
+            artistPhoto: auth.currentUser.photoURL || '',
+            title: formData.title,
+            story: formData.story,
+            photoUrl: formData.photoUrl,
+            latitude: parseFloat(formData.latitude),
+            longitude: parseFloat(formData.longitude),
+            locationType: formData.locationType,
+            locationName: formData.locationName,
+            materials: formData.materials || '',
+            dateCreated: new Date().toISOString().split('T')[0],
+            status: 'active',
+            foundCount: 0,
+            totalDonations: 0,
+            findEvents: []
         };
+        
+        const docRef = await addDoc(collection(db, 'artDrops'), artData);
+        console.log("✅ Art drop created with ID:", docRef.id);
+        
+        // Update user's activeDrops count
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        await updateDoc(userRef, {
+            activeDrops: increment(1)
+        });
+        
+        return docRef.id;
+    } catch (error) {
+        console.error("❌ Error creating art drop:", error);
+        throw error;
+    }
+}
+
+async function uploadArtPhotoToStorage(file) {
+    try {
+        const timestamp = Date.now();
+        const fileName = `${timestamp}_${file.name}`;
+        const storageRef = ref(storage, `art/${fileName}`);
+        
+        await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(storageRef);
+        
+        console.log("✅ Photo uploaded successfully:", downloadURL);
+        return downloadURL;
+    } catch (error) {
+        console.error("❌ Error uploading photo:", error);
+        throw error;
+    }
+}
+
+// ============================================
+// DATA STRUCTURES (In-Memory Storage)
+// Used as fallback when Firebase data is loading
+// ============================================
+
+const appState = {
+    currentUser: null,
+    currentPage: 'landing',
+    userLocation: null,
+    artists: [
+        {
+            id: 1,
+            name: 'Sarah Martinez',
+            email: 'sarah@example.com',
+            password: 'password',
+            joinDate: '2024-09-15',
+            totalDonations: 142.50,
+            activeDrops: 6,
+            instagram: '@sarahartdrops',
+            tiktok: '@sarah.creates',
+            website: 'https://sarahmartinez.art',
+            bio: 'Finding beauty in nature\'s discarded treasures. Beach walker, sunset painter, coffee shop regular.',
+            profilePhoto: 'https://i.pravatar.cc/200?img=1',
+            city: 'Brooklyn, NY'
+        },
+        {
+            id: 2,
+            name: 'James River',
+            email: 'james@example.com',
+            password: 'password',
+            joinDate: '2024-10-01',
+            totalDonations: 98.75,
+            activeDrops: 4,
+            instagram: '@jamesriverart',
+            facebook: 'https://facebook.com/jamesriverart',
+            website: 'https://jamesriver.studio',
+            bio: 'Desert wanderer painting stories on stones. Sedona sunsets captured on sandstone.',
+            profilePhoto: 'https://i.pravatar.cc/200?img=12',
+            city: 'Sedona, AZ'
+        },
+        {
+            id: 3,
+            name: 'Alex Park',
+            email: 'alex@example.com',
+            password: 'password',
+            joinDate: '2024-08-20',
+            totalDonations: 215.00,
+            activeDrops: 9,
+            instagram: '@alexparkart',
+            tiktok: '@alex.drops',
+            website: 'https://alexparkstudio.com',
+            bio: 'Urban explorer hiding art in unexpected places. Driftwood sculptor, quote painter, joy spreader.',
+            profilePhoto: 'https://i.pravatar.cc/200?img=5',
+            city: 'Portland, OR'
+        }
+    ],
+    finders: [
+        {
+            id: 3,
+            name: 'Emily Chen',
+            email: 'emily@example.com',
+            password: 'password',
+            userType: 'finder',
+            foundArt: [1, 3],
+            followedArtists: [1],
+            followedLocations: [1, 3],
+            totalFinds: 12,
+            bio: 'Art hunter and coffee shop explorer',
+            profilePhoto: 'https://i.pravatar.cc/200?img=32',
+            city: 'Brooklyn, NY',
+            joinDate: '2024-09-10'
+        },
+        {
+            id: 4,
+            name: 'Marcus Williams',
+            email: 'marcus@example.com',
+            password: 'password',
+            userType: 'finder',
+            foundArt: [2, 4],
+            followedArtists: [2],
+            followedLocations: [2],
+            totalFinds: 8,
+            bio: 'Trail runner discovering hidden treasures',
+            profilePhoto: 'https://i.pravatar.cc/200?img=14',
+            city: 'Denver, CO',
+            joinDate: '2024-09-25'
+        }
+    ],
+    artDrops: [
+        {
+            id: 1,
+            artistId: 1,
+            artistName: 'Sarah Martinez',
+            title: 'Morning Coffee Shell',
+            story: 'Found this perfect scallop shell during sunrise beach walk. Painted it with the colors of that magical morning sky.',
+            photoUrl: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&h=1600&fit=crop',
+            latitude: 40.7589,
+            longitude: -73.9851,
+            locationType: 'Coffee Shop',
+            locationName: 'Central Perk Cafe, NYC',
+            status: 'active',
+            dateCreated: '2024-10-20',
+            totalDonations: 23.50,
+            foundCount: 0,
+            findEvents: []
+        },
+        {
+            id: 2,
+            artistId: 2,
+            artistName: 'James River',
+            title: 'Desert Dreams',
+            story: 'This red sandstone called to me from a canyon wall. I painted it with the spirit of the desert sunset.',
+            photoUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&h=400&fit=crop',
+            latitude: 34.8697,
+            longitude: -111.7610,
+            locationType: 'Trail',
+            locationName: 'Sedona Red Rock Trail',
+            status: 'found',
+            dateCreated: '2024-10-18',
+            findDate: '2024-10-24',
+            finderMessage: 'This made my hike so special! Thank you!',
+            totalDonations: 15.00,
+            foundCount: 1,
+            findEvents: [
+                {
+                    id: 1,
+                    finderName: 'Sarah H.',
+                    message: 'This made my hike so special! Thank you!',
+                    findDate: '2024-10-24',
+                    donated: true
+                }
+            ]
+        },
+        {
+            id: 3,
+            artistId: 3,
+            artistName: 'Alex Park',
+            title: 'Page Turner',
+            story: 'Driftwood from the Hudson, painted with literary quotes. Perfect for a bookstore hiding spot.',
+            photoUrl: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=600&h=400&fit=crop',
+            latitude: 40.7282,
+            longitude: -73.9942,
+            locationType: 'Bookstore',
+            locationName: 'Shakespeare & Co Books',
+            status: 'active',
+            dateCreated: '2024-10-19',
+            totalDonations: 8.75,
+            foundCount: 0,
+            findEvents: []
+        },
+        {
+            id: 4,
+            artistId: 1,
+            artistName: 'Sarah Martinez',
+            title: 'Autumn Feather',
+            story: 'Hawk feather painted with fall colors from Central Park. Left it where nature lovers gather.',
+            photoUrl: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=1200&h=1600&fit=crop',
+            latitude: 40.7829,
+            longitude: -73.9654,
+            locationType: 'Park',
+            locationName: 'Central Park Bow Bridge',
+            status: 'found',
+            dateCreated: '2024-10-16',
+            findDate: '2024-10-22',
+            finderMessage: 'My daughter loved finding this! She\'s inspired to create her own art now.',
+            totalDonations: 25.00,
+            foundCount: 1,
+            findEvents: [
+                {
+                    id: 2,
+                    finderName: 'Jennifer M.',
+                    message: 'My daughter loved finding this! She\'s inspired to create her own art now.',
+                    findDate: '2024-10-22',
+                    donated: true
+                }
+            ]
+        },
+        {
+            id: 5,
+            artistId: 2,
+            artistName: 'James River',
+            title: 'Coffee Shop Companion',
+            story: 'Small river rock painted as a tiny succulent. Perfect companion for your morning coffee ritual.',
+            photoUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&h=400&fit=crop',
+            latitude: 47.6062,
+            longitude: -122.3321,
+            locationType: 'Coffee Shop',
+            locationName: 'Pike Place Coffee, Seattle',
+            status: 'active',
+            dateCreated: '2024-10-21',
+            totalDonations: 0,
+            foundCount: 0,
+            findEvents: []
+        }
+    ],
+    locations: [
+        {
+            id: 1,
+            name: 'Westside Coffee',
+            address: '123 West St',
+            city: 'Brooklyn',
+            state: 'NY',
+            latitude: 40.7589,
+            longitude: -73.9851,
+            followerCount: 234,
+            activeDropCount: 12,
+            totalDropCount: 18,
+            trending: true,
+            distance: '0.3 miles',
+            featuredPhotos: [
+                'https://images.unsplash.com/photo-1582662104865-0a8b0c8f9832?w=400&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1560015534-cee980ba7e13?w=400&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=400&fit=crop'
+            ],
+            locationPhoto: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&h=600&fit=crop',
+            recentDrops: [1]
+        },
+        {
+            id: 2,
+            name: 'Central Park',
+            address: 'Central Park',
+            city: 'New York',
+            state: 'NY',
+            latitude: 40.7829,
+            longitude: -73.9654,
+            followerCount: 456,
+            activeDropCount: 28,
+            totalDropCount: 45,
+            trending: true,
+            distance: '1.2 miles',
+            featuredPhotos: [
+                'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=400&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=400&fit=crop'
+            ],
+            locationPhoto: 'https://images.unsplash.com/photo-1519331379826-f10be5486c6f?w=800&h=600&fit=crop',
+            recentDrops: [4]
+        },
+        {
+            id: 3,
+            name: 'Pike Place Coffee',
+            address: '1st Ave',
+            city: 'Seattle',
+            state: 'WA',
+            latitude: 47.6062,
+            longitude: -122.3321,
+            followerCount: 189,
+            activeDropCount: 15,
+            totalDropCount: 23,
+            trending: false,
+            distance: '1847 miles',
+            featuredPhotos: [
+                'https://images.unsplash.com/photo-1611688270284-b84259aa2d3c?w=400&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1509023464722-18d996393ca8?w=400&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1582662104865-0a8b0c8f9832?w=400&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=400&fit=crop'
+            ],
+            locationPhoto: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&h=600&fit=crop',
+            recentDrops: [5]
+        },
+        {
+            id: 4,
+            name: 'Red Rock Trail',
+            address: 'Trail Head',
+            city: 'Sedona',
+            state: 'AZ',
+            latitude: 34.8697,
+            longitude: -111.7610,
+            followerCount: 312,
+            activeDropCount: 22,
+            totalDropCount: 35,
+            trending: true,
+            distance: '1654 miles',
+            featuredPhotos: [
+                'https://images.unsplash.com/photo-1509023464722-18d996393ca8?w=400&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1611688270284-b84259aa2d3c?w=400&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=400&h=400&fit=crop'
+            ],
+            locationPhoto: 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=800&h=600&fit=crop',
+            recentDrops: [2]
+        },
+        {
+            id: 5,
+            name: 'Riverside Books',
+            address: 'River St',
+            city: 'Portland',
+            state: 'OR',
+            latitude: 45.5152,
+            longitude: -122.6784,
+            followerCount: 167,
+            activeDropCount: 9,
+            totalDropCount: 14,
+            trending: false,
+            distance: '2000 miles',
+            featuredPhotos: [
+                'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1560015534-cee980ba7e13?w=400&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1582662104865-0a8b0c8f9832?w=400&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=400&fit=crop'
+            ],
+            locationPhoto: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=800&h=600&fit=crop',
+            recentDrops: [3]
+        }
+    ],
+    follows: [],
+    locationTypes: ['Coffee Shop', 'Bookstore', 'Park', 'Trail', 'Plaza', 'Mall', 'Library', 'Other'],
+    donationPresets: [1, 3, 5, 10],
+    platformCommission: 0.05
+};
+
 
         // ============================================
         // MAIN APP CONTROLLER
