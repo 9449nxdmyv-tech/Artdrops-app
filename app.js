@@ -223,6 +223,62 @@ async function createArtDropInFirebase(formData) {
     }
 }
 
+// ============================================
+// FIREBASE DATA LOADERS - Update appState Cache
+// ============================================
+
+async function loadArtDropsFromFirebase() {
+    try {
+        console.log("Loading art drops from Firebase...");
+        const artDrops = await getFirebaseArtDrops({ status: 'active' });
+        
+        if (artDrops && artDrops.length > 0) {
+            appState.artDrops = artDrops;
+            console.log("✅ Loaded", artDrops.length, "art drops from Firebase");
+        } else {
+            console.log("⚠️ No art drops found in Firebase, using demo data");
+        }
+    } catch (error) {
+        console.error("❌ Error loading art drops:", error);
+        console.log("Using demo data from appState");
+    }
+}
+
+async function loadLocationsFromFirebase() {
+    try {
+        console.log("Loading locations from Firebase...");
+        const locations = await getFirebaseLocations();
+        
+        if (locations && locations.length > 0) {
+            appState.locations = locations;
+            console.log("✅ Loaded", locations.length, "locations from Firebase");
+        } else {
+            console.log("⚠️ No locations found in Firebase, using demo data");
+        }
+    } catch (error) {
+        console.error("❌ Error loading locations:", error);
+        console.log("Using demo data from appState");
+    }
+}
+
+async function loadPopularLocationsFromFirebase() {
+    try {
+        console.log("Loading popular locations from Firebase...");
+        const locations = await getFirebaseLocations();
+        
+        if (locations && locations.length > 0) {
+            // Sort by follower count to get "popular"
+            appState.locations = locations.sort((a, b) => 
+                (b.followerCount || 0) - (a.followerCount || 0)
+            );
+            console.log("✅ Loaded popular locations from Firebase");
+        }
+    } catch (error) {
+        console.error("❌ Error loading popular locations:", error);
+    }
+}
+
+
 const appState = {
             currentUser: null,
             currentPage: 'landing',
@@ -611,98 +667,230 @@ const appState = {
                 return `${Math.round(distance)} miles away`;
             },
 
-            showPage(page, data = {}) {
-                appState.currentPage = page;
-                const appContainer = document.getElementById('app');
+            showPage(page, data) {
+    appState.currentPage = page;
+    const appContainer = document.getElementById('app');
+    
+    // Use async IIFE to load data from Firebase before rendering
+    (async () => {
+        try {
+            switch(page) {
+                // PAGES THAT NEED FIREBASE DATA
                 
-                switch(page) {
-                    case 'landing':
-                        appContainer.innerHTML = this.renderLanding();
-                        setTimeout(() => this.initLandingMap(), 200);
-                        break;
-                    case 'artist-login':
-                        appContainer.innerHTML = this.renderArtistLogin();
-                        break;
-                    case 'artist-signup':
-                        appContainer.innerHTML = this.renderArtistSignup();
-                        break;
-                    case 'home':
-                        appContainer.innerHTML = this.renderHome();
-                        break;
-                    case 'browse-map':
-                        appContainer.innerHTML = this.renderBrowseMap();
-                        setTimeout(() => this.initBrowseMap(), 300);
-                        break;
-                    case 'artist-dashboard':
-                        appContainer.innerHTML = this.renderArtistDashboard();
-                        break;
-                    case 'drop-new-art':
-                        appContainer.innerHTML = this.renderDropNewArt();
-                        setTimeout(() => this.initDropLocationMap(), 300);
-                        break;
-                    case 'my-drops':
-                        appContainer.innerHTML = this.renderMyDrops();
-                        break;
-                    case 'qr-tag-generator':
-                        appContainer.innerHTML = this.renderQRTagGenerator(data.dropId);
-                        setTimeout(() => this.generateQRCode(data.dropId), 200);
-                        
-                        break;
-                    case 'art-story':
-                        appContainer.innerHTML = this.renderArtStory(data.dropId);
-                        setTimeout(() => this.initArtStoryMap(data.dropId), 300);
-                        break;
-                    case 'found-confirmation':
-                        appContainer.innerHTML = this.renderFoundConfirmation(data.dropId);
-                        break;
-                    case 'donation-flow':
-                        appContainer.innerHTML = this.renderDonationFlow(data.dropId);
-                        break;
-                    case 'thank-you':
-                        appContainer.innerHTML = this.renderThankYou(data.dropId, data.amount);
-                        break;
-                    case 'how-it-works':
-                        appContainer.innerHTML = this.renderHowItWorks();
-                        break;
-                    case 'about':
-                        appContainer.innerHTML = this.renderAbout();
-                        break;
-                    case 'contact':
-                        appContainer.innerHTML = this.renderContact();
-                        break;
-                    case 'edit-profile':
-                        appContainer.innerHTML = this.renderEditProfile();
-                        break;
-                    case 'finder-login':
-                        appContainer.innerHTML = this.renderFinderLogin();
-                        break;
-                    case 'finder-signup':
-                        appContainer.innerHTML = this.renderFinderSignup();
-                        break;
-                    case 'feed':
-                        appContainer.innerHTML = this.renderFeed();
-                        break;
-                    case 'my-collection':
-                        appContainer.innerHTML = this.renderMyCollection();
-                        break;
-                    case 'finder-profile':
-                        appContainer.innerHTML = this.renderFinderProfile(data.finderId);
-                        break;
-                    case 'artist-profile':
-                        appContainer.innerHTML = this.renderArtistProfile(data.artistId);
-                        setTimeout(() => this.initArtistMapPreview(data.artistId), 300);
-                        break;
-                    case 'popular-locations':
-                        appContainer.innerHTML = this.renderPopularLocations();
-                        break;
-                    case 'location-detail':
-                        appContainer.innerHTML = this.renderLocationDetail(data.locationId);
-                        break;
-                }
+                case 'my-drops':
+                    if (!appState.currentUser) {
+                        this.showPage('artist-login');
+                        return;
+                    }
+                    // Load from Firebase before rendering
+                    await loadArtDropsFromFirebase();
+                    appContainer.innerHTML = this.renderMyDrops();
+                    break;
+                    
+                case 'popular-locations':
+                    // Load from Firebase before rendering
+                    await loadPopularLocationsFromFirebase();
+                    appContainer.innerHTML = this.renderPopularLocations();
+                    break;
+                    
+                case 'feed':
+                    // Load from Firebase before rendering
+                    await loadArtDropsFromFirebase();
+                    appContainer.innerHTML = this.renderFeed();
+                    break;
+                    
+                case 'browse-map':
+                    // Load from Firebase before rendering
+                    await loadArtDropsFromFirebase();
+                    appContainer.innerHTML = this.renderBrowseMap();
+                    setTimeout(() => this.initBrowseMap(), 300);
+                    break;
+                    
+                case 'artist-dashboard':
+                    if (!appState.currentUser) {
+                        this.showPage('artist-login');
+                        return;
+                    }
+                    // Load user's drops from Firebase
+                    await loadArtDropsFromFirebase();
+                    appContainer.innerHTML = this.renderArtistDashboard();
+                    break;
+                    
+                case 'my-collection':
+                    if (!appState.currentUser) {
+                        this.showPage('finder-login');
+                        return;
+                    }
+                    // Load art drops for collection display
+                    await loadArtDropsFromFirebase();
+                    appContainer.innerHTML = this.renderMyCollection();
+                    break;
                 
-                this.updateNav();
-                window.scrollTo(0, 0);
-            },
+                // PAGES THAT DON'T NEED FIREBASE (Synchronous)
+                
+                case 'landing':
+                    // Pre-load data in background for landing page display
+                    loadArtDropsFromFirebase().catch(err => console.log("Background load:", err));
+                    loadLocationsFromFirebase().catch(err => console.log("Background load:", err));
+                    appContainer.innerHTML = this.renderLanding();
+                    setTimeout(() => this.initLandingMap(), 200);
+                    break;
+                    
+                case 'home':
+                    if (!appState.currentUser) {
+                        this.showPage('landing');
+                        return;
+                    }
+                    appContainer.innerHTML = this.renderHome();
+                    break;
+                    
+                case 'artist-login':
+                    appContainer.innerHTML = this.renderArtistLogin();
+                    break;
+                    
+                case 'artist-signup':
+                    appContainer.innerHTML = this.renderArtistSignup();
+                    break;
+                    
+                case 'finder-login':
+                    appContainer.innerHTML = this.renderFinderLogin();
+                    break;
+                    
+                case 'finder-signup':
+                    appContainer.innerHTML = this.renderFinderSignup();
+                    break;
+                    
+                case 'drop-new-art':
+                    if (!appState.currentUser) {
+                        this.showPage('artist-login');
+                        return;
+                    }
+                    appContainer.innerHTML = this.renderDropNewArt();
+                    setTimeout(() => this.initDropLocationMap(), 300);
+                    break;
+                    
+                case 'qr-tag-generator':
+                    if (!data || !data.dropId) {
+                        console.warn("No dropId provided");
+                        this.showPage('home');
+                        return;
+                    }
+                    appContainer.innerHTML = this.renderQRTagGenerator(data.dropId);
+                    setTimeout(() => this.generateQRCode(data.dropId), 200);
+                    break;
+                    
+                case 'art-story':
+                    if (!data || !data.dropId) {
+                        console.warn("No dropId provided");
+                        this.showPage('browse-map');
+                        return;
+                    }
+                    // Load from Firebase to get latest data
+                    await loadArtDropsFromFirebase();
+                    appContainer.innerHTML = this.renderArtStory(data.dropId);
+                    setTimeout(() => this.initArtStoryMap(data.dropId), 300);
+                    break;
+                    
+                case 'found-confirmation':
+                    if (!data || !data.dropId) {
+                        this.showPage('browse-map');
+                        return;
+                    }
+                    appContainer.innerHTML = this.renderFoundConfirmation(data.dropId);
+                    break;
+                    
+                case 'donation-flow':
+                    if (!data || !data.dropId) {
+                        this.showPage('browse-map');
+                        return;
+                    }
+                    appContainer.innerHTML = this.renderDonationFlow(data.dropId);
+                    break;
+                    
+                case 'thank-you':
+                    if (!data || !data.dropId) {
+                        this.showPage('browse-map');
+                        return;
+                    }
+                    appContainer.innerHTML = this.renderThankYou(data.dropId, data.amount);
+                    break;
+                    
+                case 'how-it-works':
+                    appContainer.innerHTML = this.renderHowItWorks();
+                    break;
+                    
+                case 'about':
+                    appContainer.innerHTML = this.renderAbout();
+                    break;
+                    
+                case 'contact':
+                    appContainer.innerHTML = this.renderContact();
+                    break;
+                    
+                case 'edit-profile':
+                    if (!appState.currentUser) {
+                        this.showPage('artist-login');
+                        return;
+                    }
+                    appContainer.innerHTML = this.renderEditProfile();
+                    break;
+                    
+                case 'artist-profile':
+                    if (!data || !data.artistId) {
+                        console.warn("No artistId provided");
+                        this.showPage('home');
+                        return;
+                    }
+                    // Load drops from Firebase to show complete artist profile
+                    await loadArtDropsFromFirebase();
+                    appContainer.innerHTML = this.renderArtistProfile(data.artistId);
+                    setTimeout(() => this.initArtistMapPreview(data.artistId), 300);
+                    break;
+                    
+                case 'finder-profile':
+                    if (!data || !data.finderId) {
+                        console.warn("No finderId provided");
+                        this.showPage('my-collection');
+                        return;
+                    }
+                    appContainer.innerHTML = this.renderFinderProfile(data.finderId);
+                    break;
+                    
+                case 'location-detail':
+                    if (!data || !data.locationId) {
+                        console.warn("No locationId provided");
+                        this.showPage('popular-locations');
+                        return;
+                    }
+                    // Load all data for location detail view
+                    await loadArtDropsFromFirebase();
+                    await loadLocationsFromFirebase();
+                    appContainer.innerHTML = this.renderLocationDetail(data.locationId);
+                    break;
+                
+                default:
+                    console.warn("Unknown page:", page);
+                    appContainer.innerHTML = `<div class="container"><p>Page not found.</p></div>`;
+            }
+        } catch (error) {
+            console.error("Error loading page:", page, error);
+            appContainer.innerHTML = `
+                <div class="container" style="text-align: center; padding: 3rem 1rem;">
+                    <h2 style="margin-bottom: 1rem;">Error Loading Page</h2>
+                    <p style="color: var(--text-gray); margin-bottom: 2rem;">
+                        ${error.message || 'An unexpected error occurred. Please try again.'}
+                    </p>
+                    <button class="btn btn-primary" onclick="app.showPage('landing')" style="min-height: 48px;">
+                        Go to Home
+                    </button>
+                </div>
+            `;
+        }
+    })();
+    
+    this.updateNav();
+    window.scrollTo(0, 0);
+},
 generateQRCode(dropId) {
     try {
         const qrcodeElement = document.getElementById('qrcode');
@@ -1360,63 +1548,55 @@ renderMyDrops() {
         return ''
     }
     
-    try {
-        // Use local cache instead of async Firebase calls
-        const myDrops = appState.artDrops.filter(d => d.artistId === appState.currentUser.id);
-        
-        console.log("User has", myDrops.length, "drops");
-        
-        let html = `
-            <div class="container">
-                <h1>My Drops</h1>
-                <p style="color: var(--text-gray); margin-bottom: 2rem;">Your art in the wild</p>
+    // ✅ Use local appState cache - will be populated by Firebase loader
+    const myDrops = appState.artDrops.filter(d => d.artistId === appState.currentUser.id);
+    
+    console.log("User has", myDrops.length, "drops");
+    
+    let html = `
+        <div class="container">
+            <h1>My Drops</h1>
+            <p style="color: var(--text-gray); margin-bottom: 2rem;">Your art in the wild</p>
+    `;
+    
+    if (myDrops.length === 0) {
+        html += `
+            <div class="empty-state" style="text-align: center; padding: 60px 20px;">
+                <svg class="icon" style="width: 80px; height: 80px; margin-bottom: 20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <h3>No art drops yet</h3>
+                <p style="margin: 20px 0;">Be the first to drop art and spread joy!</p>
+                <button class="btn btn-primary" onclick="app.showPage('drop-new-art')">Drop Your First Piece</button>
+            </div>
         `;
-        
-        if (myDrops.length === 0) {
+    } else {
+        html += '<div class="drops-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">';
+        myDrops.forEach(drop => {
+            const status = drop.status === 'active' ? '✓ Active' : '🎯 Found';
+            const badgeClass = drop.status === 'active' ? 'active' : 'found';
+            const foundCount = drop.foundCount || 0;
+            
             html += `
-                <div class="empty-state" style="text-align: center; padding: 60px 20px;">
-                    <svg class="icon" style="width: 80px; height: 80px; margin-bottom: 20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="12" y1="8" x2="12" y2="12"/>
-                        <line x1="12" y1="16" x2="12.01" y2="16"/>
-                    </svg>
-                    <h3>No art drops yet</h3>
-                    <p style="margin: 20px 0;">Be the first to drop art and spread joy!</p>
-                    <button class="btn btn-primary" onclick="app.showPage('drop-new-art')">Drop Your First Piece</button>
+                <div class="card" onclick="app.showPage('art-story', {dropId: ${drop.id}})">
+                    <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0; cursor: pointer;" />
+                    <div class="card-content" style="padding: 16px;">
+                        <span class="badge badge-${badgeClass}">${status}</span>
+                        <h3 style="margin: 8px 0;">${drop.title}</h3>
+                        <p style="color: #666; font-size: 0.9rem;">📍 ${drop.locationName}</p>
+                        <p style="color: #999; font-size: 0.875rem;">Found ${foundCount} time${foundCount !== 1 ? 's' : ''}</p>
+                        <p style="color: #999; font-size: 0.875rem;">$${(drop.totalDonations || 0).toFixed(2)} donated</p>
+                    </div>
                 </div>
             `;
-        } else {
-            html += '<div class="drops-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">';
-            
-            myDrops.forEach(drop => {
-                const status = drop.status === 'active' ? '✓ Active' : '🎯 Found';
-                const badgeClass = drop.status === 'active' ? 'active' : 'found';
-                const foundCount = drop.foundCount || 0;
-                
-                html += `
-                    <div class="card" onclick="app.showPage('art-story', {dropId: ${drop.id}})">
-                        <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0; cursor: pointer;" />
-                        <div class="card-content" style="padding: 16px;">
-                            <span class="badge badge-${badgeClass}">${status}</span>
-                            <h3 style="margin: 8px 0;">${drop.title}</h3>
-                            <p style="color: #666; font-size: 0.9rem;">📍 ${drop.locationName}</p>
-                            <p style="color: #999; font-size: 0.875rem;">Found ${foundCount} time${foundCount !== 1 ? 's' : ''}</p>
-                            <p style="color: #999; font-size: 0.875rem;">$${(drop.totalDonations || 0).toFixed(2)} donated</p>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            html += '</div>';
-        }
-        
+        });
         html += '</div>';
-        return html;
-        
-    } catch (error) {
-        console.error("Error rendering my drops:", error);
-        return `<div class="container"><p>Error loading your drops. Please try again.</p></div>`;
     }
+    
+    html += '</div>';
+    return html;
 },
 
 renderQRTagGenerator(dropId) {
