@@ -34,14 +34,14 @@ import {
 
 // Firebase Config - REPLACE WITH YOURS
 const firebaseConfig = {
-    apiKey: "AIzaSyD2dBIb4rNczPQAxsyh-UkKSJrp0gLrnKA",
-    authDomain: "art-drops-production.firebaseapp.com",
-    projectId: "art-drops-production",
-    storageBucket: "art-drops-production.firebasestorage.app",
-    messagingSenderId: "738166123505",
-    appId: "1:738166123505:web:2e938dc32c436bcd693250",
-    measurementId: "G-FKDW0NSDQY"
-  };
+  apiKey: "AIzaSyD2dBIb4rNczPQAxsyh-UkKSJrp0gLrnKA",
+  authDomain: "art-drops-production.firebaseapp.com",
+  projectId: "art-drops-production",
+  storageBucket: "art-drops-production.firebasestorage.app",
+  messagingSenderId: "738166123505",
+  appId: "1:738166123505:web:2e938dc32c436bcd693250",
+  measurementId: "G-FKDW0NSDQY"
+};
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
