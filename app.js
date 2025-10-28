@@ -2435,7 +2435,7 @@ async handleArtistSignup(e) {
             return;
         }
         
-        this.showLoadingOverlay('Creating account...');
+        console.log("Creating account...");
         
         // Create Firebase user
         const result = await createUserWithEmailAndPassword(auth, email, password);
@@ -2445,8 +2445,12 @@ async handleArtistSignup(e) {
         let profilePhotoUrl = 'https://i.pravatar.cc/200?img=1';
         const photoInput = document.getElementById('signupProfileInput');
         if (photoInput && photoInput.files.length > 0) {
-            this.showLoadingOverlay('Uploading profile photo...');
-            profilePhotoUrl = await uploadPhotoToStorage(photoInput.files);
+            console.log("Uploading profile photo...");
+            try {
+                profilePhotoUrl = await uploadPhotoToStorage(photoInput.files[0]);
+            } catch (photoError) {
+                console.error("Photo upload failed, using default", photoError);
+            }
         }
         
         // Create user document in Firestore
@@ -2467,7 +2471,7 @@ async handleArtistSignup(e) {
             followerCount: 0,
             totalDonations: 0,
             activeDrops: 0,
-            joinDate: new Date().toISOString().split('T'),
+            joinDate: new Date().toISOString().split('T')[0],
             createdAt: serverTimestamp()
         });
         
@@ -2489,16 +2493,14 @@ async handleArtistSignup(e) {
             followerCount: 0,
             totalDonations: 0,
             activeDrops: 0,
-            joinDate: new Date().toISOString().split('T')
+            joinDate: new Date().toISOString().split('T')[0]
         };
         
-        this.hideLoadingOverlay();
         this.showToast('✅ Account created successfully!');
         this.showPage('home');
         
     } catch (error) {
         console.error('❌ Signup error:', error);
-        this.hideLoadingOverlay();
         
         let message = 'Signup failed';
         if (error.code === 'auth/email-already-in-use') {
@@ -2561,7 +2563,7 @@ async handleArtistSignup(e) {
             // EVENT HANDLERS
             // ============================================
 
-            async handleFinderLogin(e) {
+           async handleFinderLogin(e) {
     e.preventDefault();
     
     try {
@@ -2574,7 +2576,7 @@ async handleArtistSignup(e) {
             return;
         }
         
-        this.showLoadingOverlay('Signing in...');
+        console.log("Finder signing in...");
         
         // Firebase Authentication
         const result = await signInWithEmailAndPassword(auth, email, password);
@@ -2599,23 +2601,23 @@ async handleArtistSignup(e) {
                 followedArtists: userData.followedArtists || [],
                 followedLocations: userData.followedLocations || [],
                 totalFinds: userData.totalFinds || 0,
-                joinDate: userData.joinDate || new Date().toISOString().split('T')
+                joinDate: userData.joinDate || new Date().toISOString().split('T')[0]
             };
         }
         
-        this.hideLoadingOverlay();
         this.showToast('✅ Welcome back, ' + appState.currentUser.name + '!');
         this.showPage('feed');
         
     } catch (error) {
-        console.error('❌ Login error:', error);
-        this.hideLoadingOverlay();
+        console.error('❌ Finder login error:', error);
         
         let message = 'Login failed';
         if (error.code === 'auth/user-not-found') {
             message = 'User not found. Please sign up first.';
         } else if (error.code === 'auth/wrong-password') {
             message = 'Incorrect password.';
+        } else if (error.code === 'auth/invalid-email') {
+            message = 'Invalid email address.';
         }
         
         this.showToast('❌ ' + message);
@@ -2642,7 +2644,7 @@ async handleArtistSignup(e) {
             return;
         }
         
-        this.showLoadingOverlay('Creating account...');
+        console.log("Creating finder account...");
         
         // Create Firebase user
         const result = await createUserWithEmailAndPassword(auth, email, password);
@@ -2652,8 +2654,12 @@ async handleArtistSignup(e) {
         let profilePhotoUrl = 'https://i.pravatar.cc/200?img=50';
         const photoInput = document.getElementById('finderSignupProfileInput');
         if (photoInput && photoInput.files.length > 0) {
-            this.showLoadingOverlay('Uploading profile photo...');
-            profilePhotoUrl = await uploadPhotoToStorage(photoInput.files);
+            console.log("Uploading finder profile photo...");
+            try {
+                profilePhotoUrl = await uploadPhotoToStorage(photoInput.files[0]);
+            } catch (photoError) {
+                console.error("Photo upload failed, using default", photoError);
+            }
         }
         
         // Create user document in Firestore
@@ -2671,7 +2677,7 @@ async handleArtistSignup(e) {
             followedArtists: [],
             followedLocations: [],
             totalFinds: 0,
-            joinDate: new Date().toISOString().split('T'),
+            joinDate: new Date().toISOString().split('T')[0],
             createdAt: serverTimestamp()
         });
         
@@ -2690,16 +2696,14 @@ async handleArtistSignup(e) {
             followedArtists: [],
             followedLocations: [],
             totalFinds: 0,
-            joinDate: new Date().toISOString().split('T')
+            joinDate: new Date().toISOString().split('T')[0]
         };
         
-        this.hideLoadingOverlay();
         this.showToast('✅ Account created successfully!');
         this.showPage('feed');
         
     } catch (error) {
-        console.error('❌ Signup error:', error);
-        this.hideLoadingOverlay();
+        console.error('❌ Finder signup error:', error);
         
         let message = 'Signup failed';
         if (error.code === 'auth/email-already-in-use') {
@@ -2884,7 +2888,7 @@ async handleArtistSignup(e) {
             return;
         }
         
-        this.showLoadingOverlay('Signing in...');
+        console.log("Signing in...");
         
         // Firebase Authentication
         const result = await signInWithEmailAndPassword(auth, email, password);
@@ -2912,17 +2916,15 @@ async handleArtistSignup(e) {
                 followerCount: userData.followerCount || 0,
                 totalDonations: userData.totalDonations || 0,
                 activeDrops: userData.activeDrops || 0,
-                joinDate: userData.joinDate || new Date().toISOString().split('T')
+                joinDate: userData.joinDate || new Date().toISOString().split('T')[0]
             };
         }
         
-        this.hideLoadingOverlay();
         this.showToast('✅ Welcome back, ' + appState.currentUser.name + '!');
         this.showPage('home');
         
     } catch (error) {
         console.error('❌ Login error:', error);
-        this.hideLoadingOverlay();
         
         let message = 'Login failed';
         if (error.code === 'auth/user-not-found') {
