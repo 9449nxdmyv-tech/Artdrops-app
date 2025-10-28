@@ -2669,152 +2669,324 @@ const appState = {
                 this.showToast('Welcome to ArtDrops, ' + newArtist.name + '!');
             },
 
-            handleDropNewArt(e) {
-                e.preventDefault();
-                this.showLoadingOverlay('Creating your art drop...');
-                const formData = new FormData(e.target);
-                
-                const newDrop = {
-                    id: appState.artDrops.length + 1,
-                    artistId: appState.currentUser.id,
-                    artistName: appState.currentUser.name,
-                    title: formData.get('title'),
-                    story: formData.get('story'),
-                    photoUrl: formData.get('photoUrl'),
-                    latitude: parseFloat(formData.get('latitude')),
-                    longitude: parseFloat(formData.get('longitude')),
-                    locationType: formData.get('locationType'),
-                    locationName: formData.get('locationName'),
-                    status: 'active',
-                    dateCreated: new Date().toISOString().split('T')[0],
-                    totalDonations: 0,
-                    foundCount: 0,
-                    findEvents: []
-                };
-                
-                appState.artDrops.push(newDrop);
-                appState.currentUser.activeDrops++;
-                
-                setTimeout(() => {
-                    this.hideLoadingOverlay();
-                    this.showPage('qr-tag-generator', { dropId: newDrop.id });
-                }, 1500);
-            },
+            async handleDropNewArt(e) {
+    e.preventDefault();
+    
+    if (!appState.currentUser) {
+        this.showToast('Please sign in first');
+        this.showPage('artist-login');
+        return;
+    }
+    
+    this.showLoadingOverlay('Creating your art drop...');
+    
+    try {
+        const formData = new FormData(e.target);
+        
+        // Get photo URL or upload file
+        let photoUrl = formData.get('photoUrl') || '';
+        
+        const photoInput = document.getElementById('dropPhotoInput') || e.target.querySelector('input[type="file"]');
+        if (photoInput && photoInput.files.length > 0) {
+            this.showLoadingOverlay('Uploading photo...');
+            photoUrl = await uploadPhotoToStorage(photoInput.files[0]);
+        }
+        
+        if (!photoUrl) {
+            throw new Error('Please provide a photo URL or upload a photo');
+        }
+        
+        // Create Firebase document
+        const newDrop = {
+            artistId: appState.currentUser.id,
+            artistName: appState.currentUser.name,
+            artistPhoto: appState.currentUser.profilePhoto || '',
+            title: formData.get('title'),
+            story: formData.get('story'),
+            photoUrl: photoUrl,
+            latitude: parseFloat(formData.get('latitude')),
+            longitude: parseFloat(formData.get('longitude')),
+            locationType: formData.get('locationType'),
+            locationName: formData.get('locationName'),
+            materials: formData.get('materials') || '',
+            status: 'active',
+            dateCreated: serverTimestamp(),
+            totalDonations: 0,
+            foundCount: 0,
+            findEvents: []
+        };
+        
+        // Save to Firebase
+        const docRef = await addDoc(collection(db, 'artDrops'), newDrop);
+        const dropId = docRef.id;
+        
+        console.log("✅ Art drop created with ID:", dropId);
+        
+        // Update user's activeDrops count in Firebase
+        const userRef = doc(db, 'users', appState.currentUser.id);
+        await updateDoc(userRef, {
+            activeDrops: increment(1)
+        });
+        
+        // Update local appState
+        appState.currentUser.activeDrops++;
+        
+        // Add to local cache too
+        appState.artDrops.push({
+            id: dropId,
+            ...newDrop
+        });
+        
+        setTimeout(() => {
+            this.hideLoadingOverlay();
+            this.showToast('✅ Art drop created!');
+            this.showPage('qr-tag-generator', { dropId: dropId });
+        }, 1500);
+        
+    } catch (error) {
+        console.error('❌ Error creating art drop:', error);
+        this.hideLoadingOverlay();
+        this.showToast('❌ Failed to create drop: ' + error.message);
+    }
+},
 
-            handleFoundSubmit(e, dropId) {
-                e.preventDefault();
-                this.showLoadingOverlay('Recording your find...');
-                const formData = new FormData(e.target);
-                const drop = appState.artDrops.find(d => d.id === dropId);
+async handleFoundSubmit(e, dropId) {
+    e.preventDefault();
+    
+    this.showLoadingOverlay('Recording your find...');
+    
+    try {
+        const formData = new FormData(e.target);
+        
+        const findEvent = {
+            id: Date.now(),
+            finderName: formData.get('finderName') || 'Anonymous',
+            message: formData.get('message') || '',
+            findDate: new Date().toISOString().split('T')[0],
+            donated: false
+        };
+        
+        // Find drop in Firebase or local cache
+        let drop = appState.artDrops.find(d => d.id === dropId);
+        
+        if (!drop) {
+            throw new Error('Art drop not found');
+        }
+        
+        // Update in Firebase
+        const dropRef = doc(db, 'artDrops', dropId);
+        const dropSnap = await getDoc(dropRef);
+        
+        if (dropSnap.exists()) {
+            const currentData = dropSnap.data();
+            const currentEvents = currentData.findEvents || [];
+            
+            await updateDoc(dropRef, {
+                findEvents: [...currentEvents, findEvent],
+                foundCount: increment(1),
+                status: 'found',
+                findDate: findEvent.findDate
+            });
+            
+            console.log("✅ Find recorded in Firebase");
+        }
+        
+        // Update local cache
+        drop.findEvents.push(findEvent);
+        drop.foundCount++;
+        drop.status = 'found';
+        drop.findDate = findEvent.findDate;
+        
+        // If logged in as finder, update their profile
+        if (appState.currentUser && appState.currentUser.userType === 'finder') {
+            if (!appState.currentUser.foundArt) {
+                appState.currentUser.foundArt = [];
+            }
+            
+            if (!appState.currentUser.foundArt.includes(dropId)) {
+                appState.currentUser.foundArt.push(dropId);
                 
-                const findEvent = {
-                    id: Date.now(),
-                    finderName: formData.get('finderName') || 'Anonymous',
-                    message: formData.get('message') || '',
-                    findDate: new Date().toISOString().split('T')[0],
-                    donated: false
-                };
+                // Update in Firebase
+                const userRef = doc(db, 'users', appState.currentUser.id);
+                await updateDoc(userRef, {
+                    foundArt: appState.currentUser.foundArt,
+                    totalFinds: increment(1)
+                });
                 
-                drop.findEvents.push(findEvent);
-                drop.foundCount++;
-                drop.status = 'found';
-                drop.findDate = findEvent.findDate;
-                
-                // Simulate processing
-                setTimeout(() => {
-                    this.hideLoadingOverlay();
-                    this.showPage('donation-flow', { dropId });
-                }, 1000);
-                return;
-                
-                // Add to finder's collection if logged in as finder
-                if (appState.currentUser && appState.currentUser.userType === 'finder') {
-                    if (!appState.currentUser.foundArt.includes(dropId)) {
-                        appState.currentUser.foundArt.push(dropId);
-                        appState.currentUser.totalFinds++;
-                    }
-                }
-            },
-
-            showLoadingOverlay(message = 'Loading...') {
-                const overlay = document.createElement('div');
-                overlay.className = 'loading-overlay';
-                overlay.id = 'loadingOverlay';
-                overlay.innerHTML = `
-                    <div class="spinner"></div>
-                    <div class="loading-text">${message}</div>
-                `;
-                document.body.appendChild(overlay);
-            },
+                appState.currentUser.totalFinds = (appState.currentUser.totalFinds || 0) + 1;
+            }
+        }
+        
+        setTimeout(() => {
+            this.hideLoadingOverlay();
+            this.showToast('✅ Find recorded!');
+            this.showPage('donation-flow', { dropId: dropId });
+        }, 1000);
+        
+    } catch (error) {
+        console.error('❌ Error recording find:', error);
+        this.hideLoadingOverlay();
+        this.showToast('❌ Failed to record find: ' + error.message);
+    }
+},
             
             hideLoadingOverlay() {
                 const overlay = document.getElementById('loadingOverlay');
                 if (overlay) overlay.remove();
             },
             
-            handleDonation(e, dropId) {
-                e.preventDefault();
-                this.showLoadingOverlay('Processing donation...');
-                const formData = new FormData(e.target);
-                const customAmount = parseFloat(formData.get('customAmount'));
-                const selectedBtn = document.querySelector('.donation-btn.selected');
-                const presetAmount = selectedBtn ? parseFloat(selectedBtn.dataset.amount) : 0;
-                
-                const amount = customAmount || presetAmount;
-                
-                if (!amount || amount < 1) {
-                    alert('Please select or enter a donation amount');
-                    return;
-                }
-                
-                const drop = appState.artDrops.find(d => d.id === dropId);
-                const artist = appState.artists.find(a => a.id === drop.artistId);
-                
-                // Calculate platform fee
-                const platformFee = amount * appState.platformCommission;
-                const artistPayout = amount - platformFee;
-                
-                // Update totals
-                drop.totalDonations += artistPayout;
-                artist.totalDonations += artistPayout;
-                
-                // Mark last find event as donated
-                if (drop.findEvents.length > 0) {
-                    drop.findEvents[drop.findEvents.length - 1].donated = true;
-                }
-                
-                // Simulate payment processing
-                setTimeout(() => {
-                    this.hideLoadingOverlay();
-                    this.showPage('thank-you', { dropId, amount });
-                }, 1500);
-            },
+            async handleDonation(e, dropId) {
+    e.preventDefault();
+    this.showLoadingOverlay('Processing donation...');
+    
+    try {
+        const formData = new FormData(e.target);
+        const customAmount = parseFloat(formData.get('customAmount'));
+        const selectedBtn = document.querySelector('.donation-btn.selected');
+        const presetAmount = selectedBtn ? parseFloat(selectedBtn.dataset.amount) : 0;
+        
+        const amount = customAmount || presetAmount;
+        
+        if (!amount || amount < 1) {
+            this.hideLoadingOverlay();
+            this.showToast('Please select or enter a donation amount');
+            return;
+        }
+        
+        // Find drop (Firebase or local cache)
+        let drop = appState.artDrops.find(d => d.id === dropId);
+        if (!drop) {
+            throw new Error('Art drop not found');
+        }
+        
+        // Calculate fees
+        const platformFee = amount * appState.platformCommission;
+        const artistPayout = amount - platformFee;
+        
+        // Create donation record in Firebase
+        const donationData = {
+            dropId: dropId,
+            artistId: drop.artistId,
+            artistName: drop.artistName,
+            donorName: formData.get('donorName') || 'Anonymous',
+            donorEmail: formData.get('donorEmail') || '',
+            amount: amount,
+            platformFee: platformFee,
+            artistPayout: artistPayout,
+            message: formData.get('message') || '',
+            donationDate: serverTimestamp(),
+            status: 'completed'
+        };
+        
+        // Save donation to Firebase
+        const donationRef = await addDoc(collection(db, 'donations'), donationData);
+        console.log("✅ Donation recorded with ID:", donationRef.id);
+        
+        // Update drop in Firebase
+        const dropRef = doc(db, 'artDrops', dropId);
+        const dropSnap = await getDoc(dropRef);
+        
+        if (dropSnap.exists()) {
+            const currentData = dropSnap.data();
+            const currentEvents = currentData.findEvents || [];
+            
+            // Mark last find event as donated
+            if (currentEvents.length > 0) {
+                currentEvents[currentEvents.length - 1].donated = true;
+            }
+            
+            await updateDoc(dropRef, {
+                totalDonations: increment(artistPayout),
+                findEvents: currentEvents
+            });
+            
+            console.log("✅ Drop updated with donation");
+        }
+        
+        // Update artist in Firebase
+        const artistRef = doc(db, 'users', drop.artistId);
+        await updateDoc(artistRef, {
+            totalDonations: increment(artistPayout)
+        });
+        
+        console.log("✅ Artist total donations updated");
+        
+        // Update local cache
+        drop.totalDonations = (drop.totalDonations || 0) + artistPayout;
+        
+        // Update current user's donations if they're the artist
+        if (appState.currentUser && appState.currentUser.id === drop.artistId) {
+            appState.currentUser.totalDonations = (appState.currentUser.totalDonations || 0) + artistPayout;
+        }
+        
+        // Simulate payment processing
+        setTimeout(() => {
+            this.hideLoadingOverlay();
+            this.showToast('✅ Thank you for your donation!');
+            this.showPage('thank-you', { dropId: dropId, amount: amount });
+        }, 1500);
+        
+    } catch (error) {
+        console.error('❌ Error processing donation:', error);
+        this.hideLoadingOverlay();
+        this.showToast('❌ Failed to process donation: ' + error.message);
+    }
+},
 
-            selectDonationAmount(amount) {
-                document.querySelectorAll('.donation-btn').forEach(btn => {
-                    btn.classList.remove('selected');
-                });
-                event.target.classList.add('selected');
-                document.getElementById('customAmount').value = '';
-            },
+selectDonationAmount(amount) {
+    document.querySelectorAll('.donation-btn').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    
+    // Find the button that was clicked
+    if (event && event.target) {
+        event.target.classList.add('selected');
+    }
+    
+    // Clear custom amount input
+    const customInput = document.getElementById('customAmount');
+    if (customInput) {
+        customInput.value = '';
+    }
+},
 
-            useCurrentLocation() {
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(
-                        position => {
-                            document.getElementById('dropLatitude').value = position.coords.latitude.toFixed(6);
-                            document.getElementById('dropLongitude').value = position.coords.longitude.toFixed(6);
-                            this.showToast('Location captured!');
-                            this.updateDropLocationMap(position.coords.latitude, position.coords.longitude);
-                        },
-                        error => {
-                            alert('Unable to get location. Please enter manually.');
-                        }
-                    );
-                } else {
-                    alert('Geolocation not supported. Please enter manually.');
+useCurrentLocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                const lat = position.coords.latitude.toFixed(6);
+                const lon = position.coords.longitude.toFixed(6);
+                
+                // Update form fields
+                const latInput = document.getElementById('dropLatitude');
+                const lonInput = document.getElementById('dropLongitude');
+                
+                if (latInput) latInput.value = lat;
+                if (lonInput) lonInput.value = lon;
+                
+                // Update appState
+                appState.userLocation = {
+                    latitude: parseFloat(lat),
+                    longitude: parseFloat(lon)
+                };
+                
+                this.showToast('✅ Location captured!');
+                
+                // Update map if it exists
+                if (document.getElementById('dropLocationMap')) {
+                    this.updateDropLocationMap(parseFloat(lat), parseFloat(lon));
                 }
             },
+            error => {
+                console.error('Geolocation error:', error);
+                this.showToast('❌ Unable to get location. Please enter manually.');
+            }
+        );
+    } else {
+        this.showToast('❌ Geolocation not supported. Please enter manually.');
+    }
+},
+
 
             // ============================================
             // HELPER METHODS
