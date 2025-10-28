@@ -16,7 +16,7 @@ import {
     collection, 
     addDoc, 
     getDocs,
-    getDoc,
+    getDoc,          // ← ADDED THIS - was missing!
     doc,
     setDoc,
     updateDoc,
@@ -24,7 +24,7 @@ import {
     where, 
     orderBy, 
     limit,
-    increment,
+    increment,       // ← ADDED THIS - needed for counters
     serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { 
@@ -57,8 +57,163 @@ const storage = getStorage(firebaseApp);
 console.log("✅ Firebase initialized successfully!");
 
 // ============================================
+// FIREBASE AUTH STATE LISTENER
+// ============================================
+
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        console.log("User signed in:", user.email);
+        await ensureUserDocument(user);
+        
+        // Update appState.currentUser when Firebase auth changes
+        appState.currentUser = {
+            id: user.uid,
+            name: user.displayName || user.email,
+            email: user.email,
+            profilePhoto: user.photoURL || '',
+            userType: 'artist'
+        };
+    } else {
+        console.log("User signed out");
+        appState.currentUser = null;
+    }
+});
+
+// ============================================
+// FIREBASE HELPER FUNCTIONS
+// ============================================
+
+async function ensureUserDocument(user) {
+    try {
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        
+        if (!userSnap.exists()) {
+            console.log("Creating new user document for:", user.email);
+            
+            await setDoc(userRef, {
+                userId: user.uid,
+                id: user.uid,
+                name: user.displayName || 'User',
+                email: user.email,
+                profilePhoto: user.photoURL || '',
+                userType: 'artist',
+                bio: '',
+                city: '',
+                instagram: '',
+                tiktok: '',
+                facebook: '',
+                website: '',
+                followerCount: 0,
+                totalDonations: 0,
+                activeDrops: 0,
+                joinDate: new Date().toISOString().split('T')[0],
+                createdAt: new Date().toISOString()
+            });
+            
+            console.log("✅ User document created successfully!");
+        } else {
+            console.log("✅ User document already exists");
+        }
+        
+        return userSnap;
+    } catch (error) {
+        console.error("❌ Error ensuring user document:", error);
+        throw error;
+    }
+}
+
+async function loadFirebaseArtDrops(filters = {}) {
+    try {
+        const constraints = [];
+        
+        if (filters.status) {
+            constraints.push(where('status', '==', filters.status));
+        }
+        if (filters.artistId) {
+            constraints.push(where('artistId', '==', filters.artistId));
+        }
+        
+        constraints.push(orderBy('dateCreated', 'desc'));
+        constraints.push(limit(filters.limit || 50));
+        
+        const q = query(collection(db, 'artDrops'), ...constraints);
+        const snapshot = await getDocs(q);
+        
+        const artDrops = [];
+        snapshot.forEach(docSnap => {
+            artDrops.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        
+        console.log("✅ Loaded art drops from Firebase:", artDrops.length);
+        return artDrops;
+    } catch (error) {
+        console.error("❌ Error loading art drops:", error);
+        return [];
+    }
+}
+
+async function createFirebaseArtDrop(formData) {
+    try {
+        if (!auth.currentUser) {
+            throw new Error("Must be signed in to create art drop");
+        }
+        
+        const artData = {
+            artistId: auth.currentUser.uid,
+            artistName: auth.currentUser.displayName || 'Artist',
+            artistPhoto: auth.currentUser.photoURL || '',
+            title: formData.title,
+            story: formData.story,
+            photoUrl: formData.photoUrl,
+            latitude: parseFloat(formData.latitude),
+            longitude: parseFloat(formData.longitude),
+            locationType: formData.locationType,
+            locationName: formData.locationName,
+            materials: formData.materials || '',
+            dateCreated: new Date().toISOString().split('T')[0],
+            status: 'active',
+            foundCount: 0,
+            totalDonations: 0,
+            findEvents: []
+        };
+        
+        const docRef = await addDoc(collection(db, 'artDrops'), artData);
+        console.log("✅ Art drop created with ID:", docRef.id);
+        
+        // Update user's activeDrops count
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        await updateDoc(userRef, {
+            activeDrops: increment(1)
+        });
+        
+        return docRef.id;
+    } catch (error) {
+        console.error("❌ Error creating art drop:", error);
+        throw error;
+    }
+}
+
+async function uploadArtPhotoToStorage(file) {
+    try {
+        const timestamp = Date.now();
+        const fileName = `${timestamp}_${file.name}`;
+        const storageRef = ref(storage, `art/${fileName}`);
+        
+        await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(storageRef);
+        
+        console.log("✅ Photo uploaded successfully:", downloadURL);
+        return downloadURL;
+    } catch (error) {
+        console.error("❌ Error uploading photo:", error);
+        throw error;
+    }
+}
+
+// ============================================
 // DATA STRUCTURES (In-Memory Storage)
-// MOVED HERE - Must be defined BEFORE auth listener
+// Used as fallback when Firebase data is loading
 // ============================================
 
 const appState = {
@@ -369,161 +524,6 @@ const appState = {
     platformCommission: 0.05
 };
 
-// ============================================
-// FIREBASE AUTH STATE LISTENER
-// Now appState is defined, so this works
-// ============================================
-
-onAuthStateChanged(auth, async (user) => {
-    if (user) {
-        console.log("User signed in:", user.email);
-        await ensureUserDocument(user);
-        
-        // Update appState.currentUser when Firebase auth changes
-        appState.currentUser = {
-            id: user.uid,
-            name: user.displayName || user.email,
-            email: user.email,
-            profilePhoto: user.photoURL || '',
-            userType: 'artist'
-        };
-    } else {
-        console.log("User signed out");
-        appState.currentUser = null;
-    }
-});
-
-// ============================================
-// FIREBASE HELPER FUNCTIONS
-// ============================================
-
-async function ensureUserDocument(user) {
-    try {
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
-        
-        if (!userSnap.exists()) {
-            console.log("Creating new user document for:", user.email);
-            
-            await setDoc(userRef, {
-                userId: user.uid,
-                id: user.uid,
-                name: user.displayName || 'User',
-                email: user.email,
-                profilePhoto: user.photoURL || '',
-                userType: 'artist',
-                bio: '',
-                city: '',
-                instagram: '',
-                tiktok: '',
-                facebook: '',
-                website: '',
-                followerCount: 0,
-                totalDonations: 0,
-                activeDrops: 0,
-                joinDate: new Date().toISOString().split('T')[0],
-                createdAt: new Date().toISOString()
-            });
-            
-            console.log("✅ User document created successfully!");
-        } else {
-            console.log("✅ User document already exists");
-        }
-        
-        return userSnap;
-    } catch (error) {
-        console.error("❌ Error ensuring user document:", error);
-        throw error;
-    }
-}
-
-async function loadFirebaseArtDrops(filters = {}) {
-    try {
-        const constraints = [];
-        
-        if (filters.status) {
-            constraints.push(where('status', '==', filters.status));
-        }
-        if (filters.artistId) {
-            constraints.push(where('artistId', '==', filters.artistId));
-        }
-        
-        constraints.push(orderBy('dateCreated', 'desc'));
-        constraints.push(limit(filters.limit || 50));
-        
-        const q = query(collection(db, 'artDrops'), ...constraints);
-        const snapshot = await getDocs(q);
-        
-        const artDrops = [];
-        snapshot.forEach(docSnap => {
-            artDrops.push({ id: docSnap.id, ...docSnap.data() });
-        });
-        
-        console.log("✅ Loaded art drops from Firebase:", artDrops.length);
-        return artDrops;
-    } catch (error) {
-        console.error("❌ Error loading art drops:", error);
-        return [];
-    }
-}
-
-async function createFirebaseArtDrop(formData) {
-    try {
-        if (!auth.currentUser) {
-            throw new Error("Must be signed in to create art drop");
-        }
-        
-        const artData = {
-            artistId: auth.currentUser.uid,
-            artistName: auth.currentUser.displayName || 'Artist',
-            artistPhoto: auth.currentUser.photoURL || '',
-            title: formData.title,
-            story: formData.story,
-            photoUrl: formData.photoUrl,
-            latitude: parseFloat(formData.latitude),
-            longitude: parseFloat(formData.longitude),
-            locationType: formData.locationType,
-            locationName: formData.locationName,
-            materials: formData.materials || '',
-            dateCreated: new Date().toISOString().split('T')[0],
-            status: 'active',
-            foundCount: 0,
-            totalDonations: 0,
-            findEvents: []
-        };
-        
-        const docRef = await addDoc(collection(db, 'artDrops'), artData);
-        console.log("✅ Art drop created with ID:", docRef.id);
-        
-        // Update user's activeDrops count
-        const userRef = doc(db, 'users', auth.currentUser.uid);
-        await updateDoc(userRef, {
-            activeDrops: increment(1)
-        });
-        
-        return docRef.id;
-    } catch (error) {
-        console.error("❌ Error creating art drop:", error);
-        throw error;
-    }
-}
-
-async function uploadArtPhotoToStorage(file) {
-    try {
-        const timestamp = Date.now();
-        const fileName = `${timestamp}_${file.name}`;
-        const storageRef = ref(storage, `art/${fileName}`);
-        
-        await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(storageRef);
-        
-        console.log("✅ Photo uploaded successfully:", downloadURL);
-        return downloadURL;
-    } catch (error) {
-        console.error("❌ Error uploading photo:", error);
-        throw error;
-    }
-}
 
         // ============================================
         // MAIN APP CONTROLLER
