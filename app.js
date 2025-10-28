@@ -1,4 +1,193 @@
+// ============================================
+// FIREBASE IMPORTS & CONFIGURATION
+// ============================================
 
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { 
+    getAuth, 
+    signInWithPopup, 
+    GoogleAuthProvider, 
+    OAuthProvider,
+    signOut as firebaseSignOut,
+    onAuthStateChanged,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { 
+    getFirestore, 
+    collection, 
+    addDoc, 
+    getDocs, 
+    getDoc,
+    doc,
+    setDoc,
+    updateDoc,
+    query, 
+    where, 
+    orderBy, 
+    limit,
+    increment,
+    serverTimestamp,
+    deleteDoc
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { 
+    getStorage, 
+    ref, 
+    uploadBytes, 
+    getDownloadURL 
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
+
+// ============================================
+// FIREBASE CONFIGURATION - UPDATE WITH YOUR KEYS
+// ============================================
+
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
+
+// Initialize Firebase
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+const storage = getStorage(firebaseApp);
+
+console.log("Firebase initialized!");
+
+// Firebase Auth Listener
+let firebaseUser = null;
+onAuthStateChanged(auth, async (user) => {
+    firebaseUser = user;
+    if (user) {
+        console.log("User signed in:", user.email);
+        // Auto-create user document
+        await ensureUserDocument(user);
+    } else {
+        console.log("User signed out");
+    }
+});
+
+// ============================================
+// FIREBASE HELPER FUNCTIONS (Add after imports)
+// ============================================
+
+async function ensureUserDocument(user) {
+    try {
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        
+        if (!userSnap.exists()) {
+            await setDoc(userRef, {
+                userId: user.uid,
+                name: user.displayName || 'Artist',
+                email: user.email,
+                profilePhoto: user.photoURL || '',
+                userType: 'artist',
+                bio: '',
+                city: '',
+                followerCount: 0,
+                totalDonations: 0,
+                activeDrops: 0,
+                joinDate: new Date().toISOString().split('T')[0],
+                createdAt: serverTimestamp()
+            });
+            console.log("User document created");
+        }
+        return userSnap;
+    } catch (error) {
+        console.error("Error ensuring user document:", error);
+    }
+}
+
+async function createFirebaseArtDrop(formData) {
+    try {
+        if (!firebaseUser) throw new Error("Must be signed in");
+        
+        let photoUrl = formData.photoUrl;
+        if (formData.photoFile) {
+            photoUrl = await uploadArtPhotoToStorage(formData.photoFile);
+        }
+        
+        const artData = {
+            artistId: firebaseUser.uid,
+            artistName: firebaseUser.displayName || 'Artist',
+            artistPhoto: firebaseUser.photoURL || '',
+            title: formData.title,
+            story: formData.story,
+            photoUrl: photoUrl,
+            latitude: parseFloat(formData.latitude),
+            longitude: parseFloat(formData.longitude),
+            locationType: formData.locationType,
+            locationName: formData.locationName,
+            materials: formData.materials || '',
+            dateCreated: serverTimestamp(),
+            status: 'active',
+            findCount: 0
+        };
+        
+        const docRef = await addDoc(collection(db, 'artDrops'), artData);
+        console.log("Art drop created:", docRef.id);
+        
+        // Update user's activeDrops count
+        const userRef = doc(db, 'users', firebaseUser.uid);
+        await updateDoc(userRef, {
+            activeDrops: increment(1)
+        });
+        
+        return docRef.id;
+    } catch (error) {
+        console.error("Error creating art drop:", error);
+        throw error;
+    }
+}
+
+async function uploadArtPhotoToStorage(file) {
+    try {
+        const timestamp = Date.now();
+        const storageRef = ref(storage, `art/${timestamp}_${file.name}`);
+        await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(storageRef);
+        console.log("Photo uploaded:", downloadURL);
+        return downloadURL;
+    } catch (error) {
+        console.error("Error uploading photo:", error);
+        throw error;
+    }
+}
+
+async function loadFirebaseArtDrops(filters = {}) {
+    try {
+        const constraints = [];
+        
+        if (filters.status) {
+            constraints.push(where('status', '==', filters.status));
+        }
+        if (filters.artistId) {
+            constraints.push(where('artistId', '==', filters.artistId));
+        }
+        
+        constraints.push(orderBy('dateCreated', 'desc'));
+        constraints.push(limit(filters.limit || 50));
+        
+        const q = query(collection(db, 'artDrops'), ...constraints);
+        const snapshot = await getDocs(q);
+        
+        const artDrops = [];
+        snapshot.forEach(docSnap => {
+            artDrops.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        
+        console.log("Loaded art drops:", artDrops.length);
+        return artDrops;
+    } catch (error) {
+        console.error("Error loading art drops:", error);
+        return [];
+    }
+}
  // ============================================
         // DATA STRUCTURES (In-Memory Storage)
         // ============================================
