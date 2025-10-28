@@ -612,6 +612,7 @@ const appState = {
                     case 'qr-tag-generator':
                         appContainer.innerHTML = this.renderQRTagGenerator(data.dropId);
                         setTimeout(() => this.generateQRCode(data.dropId), 200);
+                        
                         break;
                     case 'art-story':
                         appContainer.innerHTML = this.renderArtStory(data.dropId);
@@ -668,7 +669,41 @@ const appState = {
                 this.updateNav();
                 window.scrollTo(0, 0);
             },
-
+generateQRCode(dropId) {
+    try {
+        const qrcodeElement = document.getElementById('qrcode');
+        
+        if (!qrcodeElement) {
+            console.error('QR code element not found');
+            return;
+        }
+        
+        if (typeof QRCode === 'undefined') {
+            console.error('QRCode library not loaded');
+            return;
+        }
+        
+        // Clear any existing QR code
+        qrcodeElement.innerHTML = '';
+        
+        // Generate QR code with drop URL
+        const qrText = 'https://artdrops.app/drop/' + dropId;
+        
+        new QRCode(qrcodeElement, {
+            text: qrText,
+            width: 256,
+            height: 256,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H
+        });
+        
+        console.log("✅ QR code generated for:", qrText);
+        
+    } catch (error) {
+        console.error('❌ Error generating QR code:', error);
+    }
+},
             updateNav() {
                 const bottomNav = document.getElementById('bottomNav');
                 const footer = document.getElementById('mainFooter');
@@ -3013,26 +3048,11 @@ async handleArtistSignup(e) {
         this.showToast('✅ Art drop created successfully!');
         e.target.reset();
         
-        // Show QR tag generator
+        // ⬇️ JUST NAVIGATE TO QR PAGE ⬇️
+        // Don't generate QR code here!
         this.showPage('qr-tag-generator', { dropId: dropId });
-        if (page === 'qr-tag-generator') {
-    setTimeout(() => {
-        const qrcodeElement = document.getElementById('qrcode');
-        if (qrcodeElement && typeof QRCode !== 'undefined') {
-            qrcodeElement.innerHTML = ''; // Clear
-            const dropId = data.dropId;
-            const qrCode = 'AD-' + dropId.substring(0, 8).toUpperCase();
-            new QRCode(qrcodeElement, {
-                text: 'https://artdrops.app/drop/' + dropId,
-                width: 256,
-                height: 256,
-                colorDark: '#000000',
-                colorLight: '#ffffff',
-                correctLevel: QRCode.CorrectLevel.H
-            });
-        }
-    }, 100);
-}
+        // ⬆️ That's it! ⬆️
+        
     } catch (error) {
         console.error('❌ Error creating art drop:', error);
         this.showToast('❌ Failed to create drop: ' + error.message);
