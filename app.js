@@ -1,5 +1,5 @@
 // ============================================
-// FIREBASE IMPORTS & CONFIGURATION
+// FIREBASE SETUP - ADD AT VERY TOP OF FILE
 // ============================================
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
@@ -17,7 +17,7 @@ import {
     getFirestore, 
     collection, 
     addDoc, 
-    getDocs, 
+    getDocs,
     getDoc,
     doc,
     setDoc,
@@ -27,8 +27,7 @@ import {
     orderBy, 
     limit,
     increment,
-    serverTimestamp,
-    deleteDoc
+    serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { 
     getStorage, 
@@ -37,17 +36,15 @@ import {
     getDownloadURL 
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
-// ============================================
-// FIREBASE CONFIGURATION - UPDATE WITH YOUR KEYS
-// ============================================
-
+// Firebase Configuration
 const firebaseConfig = {
-      apiKey: "AIzaSyD2dBIb4rNczPQAxsyh-UkKSJrp0gLrnKA",
-      authDomain: "art-drops-production.firebaseapp.com",
-      projectId: "art-drops-production",
-      storageBucket: "art-drops-production.firebasestorage.app",
-      messagingSenderId: "738166123505",
-      appId: "1:738166123505:web:2e938dc32c436bcd693250"
+  apiKey: "AIzaSyD2dBIb4rNczPQAxsyh-UkKSJrp0gLrnKA",
+  authDomain: "art-drops-production.firebaseapp.com",
+  projectId: "art-drops-production",
+  storageBucket: "art-drops-production.firebasestorage.app",
+  messagingSenderId: "738166123505",
+  appId: "1:738166123505:web:2e938dc32c436bcd693250",
+  measurementId: "G-FKDW0NSDQY"
 };
 
 // Initialize Firebase
@@ -56,23 +53,23 @@ const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 const storage = getStorage(firebaseApp);
 
-console.log("Firebase initialized!");
+console.log("✅ Firebase initialized successfully!");
 
-// Firebase Auth Listener
-let firebaseUser = null;
+// ============================================
+// FIREBASE AUTH LISTENER
+// ============================================
+
 onAuthStateChanged(auth, async (user) => {
-    firebaseUser = user;
     if (user) {
-        console.log("User signed in:", user.email);
-        // Auto-create user document
-        await ensureUserDocument(user);
+        console.log("✅ User signed in:", user.email);
+        // Will update appState when user loads a page
     } else {
-        console.log("User signed out");
+        console.log("✅ User signed out");
     }
 });
 
 // ============================================
-// FIREBASE HELPER FUNCTIONS (Add after imports)
+// FIREBASE HELPER FUNCTIONS
 // ============================================
 
 async function ensureUserDocument(user) {
@@ -83,83 +80,32 @@ async function ensureUserDocument(user) {
         if (!userSnap.exists()) {
             await setDoc(userRef, {
                 userId: user.uid,
+                id: user.uid,
                 name: user.displayName || 'Artist',
                 email: user.email,
                 profilePhoto: user.photoURL || '',
                 userType: 'artist',
                 bio: '',
                 city: '',
+                instagram: '',
+                tiktok: '',
+                facebook: '',
+                website: '',
                 followerCount: 0,
                 totalDonations: 0,
                 activeDrops: 0,
                 joinDate: new Date().toISOString().split('T')[0],
                 createdAt: serverTimestamp()
             });
-            console.log("User document created");
+            console.log("✅ User document created");
         }
         return userSnap;
     } catch (error) {
-        console.error("Error ensuring user document:", error);
+        console.error("❌ Error ensuring user document:", error);
     }
 }
 
-async function createFirebaseArtDrop(formData) {
-    try {
-        if (!firebaseUser) throw new Error("Must be signed in");
-        
-        let photoUrl = formData.photoUrl;
-        if (formData.photoFile) {
-            photoUrl = await uploadArtPhotoToStorage(formData.photoFile);
-        }
-        
-        const artData = {
-            artistId: firebaseUser.uid,
-            artistName: firebaseUser.displayName || 'Artist',
-            artistPhoto: firebaseUser.photoURL || '',
-            title: formData.title,
-            story: formData.story,
-            photoUrl: photoUrl,
-            latitude: parseFloat(formData.latitude),
-            longitude: parseFloat(formData.longitude),
-            locationType: formData.locationType,
-            locationName: formData.locationName,
-            materials: formData.materials || '',
-            dateCreated: serverTimestamp(),
-            status: 'active',
-            findCount: 0
-        };
-        
-        const docRef = await addDoc(collection(db, 'artDrops'), artData);
-        console.log("Art drop created:", docRef.id);
-        
-        // Update user's activeDrops count
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        await updateDoc(userRef, {
-            activeDrops: increment(1)
-        });
-        
-        return docRef.id;
-    } catch (error) {
-        console.error("Error creating art drop:", error);
-        throw error;
-    }
-}
-
-async function uploadArtPhotoToStorage(file) {
-    try {
-        const timestamp = Date.now();
-        const storageRef = ref(storage, `art/${timestamp}_${file.name}`);
-        await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(storageRef);
-        console.log("Photo uploaded:", downloadURL);
-        return downloadURL;
-    } catch (error) {
-        console.error("Error uploading photo:", error);
-        throw error;
-    }
-}
-
-async function loadFirebaseArtDrops(filters = {}) {
+async function getFirebaseArtDrops(filters = {}) {
     try {
         const constraints = [];
         
@@ -181,18 +127,89 @@ async function loadFirebaseArtDrops(filters = {}) {
             artDrops.push({ id: docSnap.id, ...docSnap.data() });
         });
         
-        console.log("Loaded art drops:", artDrops.length);
+        console.log("✅ Loaded", artDrops.length, "art drops from Firebase");
         return artDrops;
     } catch (error) {
-        console.error("Error loading art drops:", error);
+        console.error("❌ Error loading art drops:", error);
         return [];
     }
 }
- // ============================================
-        // DATA STRUCTURES (In-Memory Storage)
-        // ============================================
+
+async function getFirebaseLocations() {
+    try {
+        const q = query(collection(db, 'locations'), orderBy('followerCount', 'desc'), limit(20));
+        const snapshot = await getDocs(q);
         
-        const appState = {
+        const locations = [];
+        snapshot.forEach(docSnap => {
+            locations.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        
+        return locations;
+    } catch (error) {
+        console.error("❌ Error loading locations:", error);
+        return [];
+    }
+}
+
+async function uploadPhotoToStorage(file) {
+    try {
+        const timestamp = Date.now();
+        const fileName = `${timestamp}_${file.name}`;
+        const storageRef = ref(storage, `art/${fileName}`);
+        
+        await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(storageRef);
+        
+        console.log("✅ Photo uploaded");
+        return downloadURL;
+    } catch (error) {
+        console.error("❌ Error uploading photo:", error);
+        throw error;
+    }
+}
+
+async function createArtDropInFirebase(formData) {
+    try {
+        if (!auth.currentUser) {
+            throw new Error("Must be signed in");
+        }
+        
+        const artData = {
+            artistId: auth.currentUser.uid,
+            artistName: auth.currentUser.displayName || 'Artist',
+            artistPhoto: auth.currentUser.photoURL || '',
+            title: formData.title,
+            story: formData.story,
+            photoUrl: formData.photoUrl,
+            latitude: parseFloat(formData.latitude),
+            longitude: parseFloat(formData.longitude),
+            locationType: formData.locationType,
+            locationName: formData.locationName,
+            materials: formData.materials || '',
+            dateCreated: serverTimestamp(),
+            status: 'active',
+            foundCount: 0,
+            totalDonations: 0,
+            findEvents: []
+        };
+        
+        const docRef = await addDoc(collection(db, 'artDrops'), artData);
+        
+        // Update user's activeDrops count
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        await updateDoc(userRef, {
+            activeDrops: increment(1)
+        });
+        
+        return docRef.id;
+    } catch (error) {
+        console.error("❌ Error creating art drop:", error);
+        throw error;
+    }
+}
+
+const appState = {
             currentUser: null,
             currentPage: 'landing',
             userLocation: null,
@@ -3858,9 +3875,172 @@ async function loadFirebaseArtDrops(filters = {}) {
             }
         };
 
-        // Initialize app when DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => app.init());
-        } else {
-            app.init();
+      
+
+app.signInWithGoogle = async function() {
+    try {
+        const provider = new GoogleAuthProvider();
+        const result = await signInWithPopup(auth, provider);
+        
+        console.log("✅ Google sign in successful:", result.user.email);
+        
+        await ensureUserDocument(result.user);
+        
+        appState.currentUser = {
+            id: result.user.uid,
+            name: result.user.displayName,
+            email: result.user.email,
+            profilePhoto: result.user.photoURL || 'https://i.pravatar.cc/200?img=1',
+            userType: 'artist'
+        };
+        
+        this.showToast('Welcome, ' + result.user.displayName + '!');
+        this.showPage('home');
+        
+    } catch (error) {
+        console.error('❌ Google sign in error:', error);
+        this.showToast('Sign in failed: ' + error.message);
+    }
+};
+
+app.signInWithApple = async function() {
+    try {
+        const provider = new OAuthProvider('apple.com');
+        const result = await signInWithPopup(auth, provider);
+        
+        console.log("✅ Apple sign in successful");
+        
+        await ensureUserDocument(result.user);
+        
+        appState.currentUser = {
+            id: result.user.uid,
+            name: result.user.displayName || 'Apple User',
+            email: result.user.email,
+            profilePhoto: result.user.photoURL || 'https://i.pravatar.cc/200?img=50',
+            userType: 'artist'
+        };
+        
+        this.showToast('Welcome!');
+        this.showPage('home');
+        
+    } catch (error) {
+        console.error('❌ Apple sign in error:', error);
+        this.showToast('Sign in failed: ' + error.message);
+    }
+};
+
+app.logout = async function() {
+    try {
+        await firebaseSignOut(auth);
+        appState.currentUser = null;
+        this.showToast('Signed out successfully');
+        this.showPage('landing');
+    } catch (error) {
+        console.error('❌ Logout error:', error);
+        this.showToast('Logout failed');
+    }
+};
+
+app.loadMapWithFirebaseData = async function() {
+    try {
+        // Load Firebase data instead of using appState
+        const firebaseDrops = await getFirebaseArtDrops({ status: 'active' });
+        
+        // Use firebaseDrops if available, otherwise fall back to appState
+        const artDrops = firebaseDrops.length > 0 ? firebaseDrops : appState.artDrops;
+        
+        console.log("Loading map with", artDrops.length, "drops");
+        
+        // Then render map as usual - your existing map code works
+        this.initBrowseMap(artDrops);
+        
+    } catch (error) {
+        console.error("❌ Error loading map:", error);
+    }
+};
+
+app.loadFeedWithFirebaseData = async function() {
+    try {
+        // Load Firebase data
+        const firebaseDrops = await getFirebaseArtDrops({ limit: 20 });
+        
+        // Use Firebase data if available, otherwise fall back to appState
+        const artDrops = firebaseDrops.length > 0 ? firebaseDrops : appState.artDrops;
+        
+        console.log("Loading feed with", artDrops.length, "drops");
+        
+        // Then render feed as usual - your existing feed rendering works
+        return this.renderFeed(artDrops);
+        
+    } catch (error) {
+        console.error("❌ Error loading feed:", error);
+        return this.renderFeed(appState.artDrops); // Fallback
+    }
+};
+
+app.handleDropNewArtWithFirebase = async function(e) {
+    e.preventDefault();
+    
+    try {
+        if (!auth.currentUser) {
+            this.showToast('Please sign in first');
+            return;
         }
+        
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creating...';
+        
+        // Get form data
+        const photoInput = document.getElementById('dropPhotoInput');
+        let photoUrl = '';
+        
+        // If photo was uploaded, upload to Firebase Storage
+        if (photoInput && photoInput.files.length > 0) {
+            photoUrl = await uploadPhotoToStorage(photoInput.files[0]);
+        } else {
+            photoUrl = document.getElementById('dropPhotoUrl')?.value || '';
+        }
+        
+        const formData = {
+            title: document.getElementById('dropTitle')?.value,
+            story: document.getElementById('dropStory')?.value,
+            photoUrl: photoUrl,
+            latitude: document.getElementById('dropLatitude')?.value,
+            longitude: document.getElementById('dropLongitude')?.value,
+            locationType: document.getElementById('dropLocationType')?.value,
+            locationName: document.getElementById('dropLocationName')?.value,
+            materials: document.getElementById('dropMaterials')?.value
+        };
+        
+        // Create in Firebase
+        await createArtDropInFirebase(formData);
+        
+        this.showToast('Art drop created successfully!');
+        e.target.reset();
+        this.showPage('home');
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+        this.showToast('Failed to create drop: ' + error.message);
+    } finally {
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Create & Generate QR Tag';
+    }
+};
+
+// ============================================
+// INITIALIZATION
+// ============================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("🚀 ArtDrops app loaded");
+    app.init();
+});
+
+window.app = app;
+
+
+        
+        
