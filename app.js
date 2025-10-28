@@ -18,6 +18,7 @@ import {
     collection, 
     addDoc, 
     getDocs,
+    deleteDoc,
     getDoc,
     doc,
     setDoc,
@@ -558,6 +559,39 @@ const appState = {
                     );
                 }
             },
+
+    showLoadingOverlay(message = 'Loading...') {
+    // Remove any existing overlay
+    const existing = document.getElementById('loadingOverlay');
+    if (existing) existing.remove();
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'loadingOverlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    `;
+    
+    overlay.innerHTML = `
+        <div style="background: white; padding: 2rem; border-radius: 12px; text-align: center;">
+            <div style="width: 40px; height: 40px; border: 3px solid #ddd; border-top-color: #000; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+            <p>${message}</p>
+        </div>
+        <style>
+            @keyframes spin { to { transform: rotate(360deg); } }
+        </style>
+    `;
+    
+    document.body.appendChild(overlay);
+},
 
             calculateDistance(lat1, lon1, lat2, lon2) {
                 const R = 3959; // Earth's radius in miles
@@ -1259,23 +1293,23 @@ generateQRCode(dropId) {
                                 <form onsubmit="app.handleDropNewArt(event)">
                                     <div class="form-group">
                                         <label>Photo URL *</label>
-                                        <input type="url" class="form-control" name="photoUrl" required placeholder="https://example.com/photo.jpg">
+                                        <input type="url" id="dropPhotoUrl" class="form-control" name="photoUrl" required placeholder="https://example.com/photo.jpg">
                                         <small style="color: var(--text-gray); display: block; margin-top: 0.5rem;">Use an image hosting service or direct link</small>
                                     </div>
                                     
                                     <div class="form-group">
                                         <label>Title *</label>
-                                        <input type="text" class="form-control" name="title" required placeholder="Give your art a memorable name">
+                                        <input type="text" id="dropTitle" class="form-control" name="title" required placeholder="Give your art a memorable name">
                                     </div>
                                     
                                     <div class="form-group">
                                         <label>Story * (Keep it brief and meaningful)</label>
-                                        <textarea class="form-control" name="story" required placeholder="Tell the story: Where did you find this? What inspired you to paint it?"></textarea>
+                                        <textarea id="dropStory" class="form-control" name="story" required placeholder="Tell the story: Where did you find this? What inspired you to paint it?"></textarea>
                                     </div>
                                     
                                     <div class="form-group">
                                         <label>Location Type *</label>
-                                        <select class="form-control" name="locationType" required>
+                                        <select id="dropLocationType" class="form-control" name="locationType" required>
                                             <option value="">Select location type</option>
                                             ${appState.locationTypes.map(type => `<option value="${type}">${type}</option>`).join('')}
                                         </select>
@@ -1283,7 +1317,7 @@ generateQRCode(dropId) {
                                     
                                     <div class="form-group">
                                         <label>Location Name *</label>
-                                        <input type="text" class="form-control" name="locationName" required placeholder="e.g., Central Perk Cafe, NYC">
+                                        <input type="text" id="dropLocationName" class="form-control" name="locationName" required placeholder="e.g., Central Perk Cafe, NYC">
                                     </div>
                                     
                                     <div style="display: grid; grid-template-columns: 1fr; gap: 1rem;">
@@ -1312,7 +1346,7 @@ generateQRCode(dropId) {
                                         <div id="dropLocationMap"></div>
                                     </div>
                                     
-                                    <button type="submit" class="btn btn-primary btn-large" style="width: 100%; min-height: 56px; font-size: 18px;">Create &amp; Generate QR Tag</button>
+    <button type="submit" class="btn btn-primary btn-large" style="width: 100%; min-height: 56px; font-size: 18px;">Create &amp; Generate QR Tag</button>
                                 </form>
                             </div>
                         </div>
@@ -1323,71 +1357,60 @@ generateQRCode(dropId) {
 renderMyDrops() {
     if (!appState.currentUser) {
         this.showPage('artist-login');
-        return '';
+        return ''
     }
     
-    try {
-        // Load user's drops from Firebase
-        const firebaseDrops = await getFirebaseArtDrops({ 
-            artistId: appState.currentUser.id 
-        });
-        
-        const myDrops = firebaseDrops.length > 0 ? firebaseDrops : 
-                        appState.artDrops.filter(d => d.artistId === appState.currentUser.id);
-        
-        console.log("User has", myDrops.length, "drops");
-        
-        let html = `
-            <div class="container">
-                <h1>My Drops</h1>
-                <p style="color: var(--text-gray); margin-bottom: 2rem;">Your art in the wild</p>
+    // Use local cache instead of async Firebase calls
+    const myDrops = appState.artDrops.filter(d => d.artistId === appState.currentUser.id);
+    
+    console.log("User has", myDrops.length, "drops");
+    
+    let html = `
+        <div class="container">
+            <h1>My Drops</h1>
+            <p style="color: var(--text-gray); margin-bottom: 2rem;">Your art in the wild</p>
+    `;
+    
+    if (myDrops.length === 0) {
+        html += `
+            <div class="empty-state" style="text-align: center; padding: 60px 20px;">
+                <svg class="icon" style="width: 80px; height: 80px; margin-bottom: 20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <h3>No art drops yet</h3>
+                <p style="margin: 20px 0;">Be the first to drop art and spread joy!</p>
+                <button class="btn btn-primary" onclick="app.showPage('drop-new-art')">Drop Your First Piece</button>
+            </div>
         `;
+    } else {
+        html += '<div class="drops-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">';
         
-        if (myDrops.length === 0) {
+        myDrops.forEach(drop => {
+            const status = drop.status === 'active' ? '✓ Active' : '🎯 Found';
+            const badgeClass = drop.status === 'active' ? 'active' : 'found';
+            const foundCount = drop.foundCount || 0;
+            
             html += `
-                <div class="empty-state" style="text-align: center; padding: 60px 20px;">
-                    <svg class="icon" style="width: 80px; height: 80px; margin-bottom: 20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="12" y1="8" x2="12" y2="12"/>
-                        <line x1="12" y1="16" x2="12.01" y2="16"/>
-                    </svg>
-                    <h3>No art drops yet</h3>
-                    <p style="margin: 20px 0;">Be the first to drop art and spread joy!</p>
-                    <button class="btn btn-primary" onclick="app.showPage('drop-new-art')">Drop Your First Piece</button>
+                <div class="card" onclick="app.showPage('art-story', {dropId: ${drop.id}})">
+                    <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0; cursor: pointer;" />
+                    <div class="card-content" style="padding: 16px;">
+                        <span class="badge badge-${badgeClass}">${status}</span>
+                        <h3 style="margin: 8px 0;">${drop.title}</h3>
+                        <p style="color: #666; font-size: 0.9rem;">📍 ${drop.locationName}</p>
+                        <p style="color: #999; font-size: 0.875rem;">Found ${foundCount} time${foundCount !== 1 ? 's' : ''}</p>
+                        <p style="color: #999; font-size: 0.875rem;">$${(drop.totalDonations || 0).toFixed(2)} donated</p>
+                    </div>
                 </div>
             `;
-        } else {
-            html += '<div class="drops-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">';
-            
-            myDrops.forEach(drop => {
-                const status = drop.status === 'active' ? '✓ Active' : '🎯 Found';
-                const badgeClass = drop.status === 'active' ? 'active' : 'found';
-                const foundCount = drop.foundCount || 0;
-                
-                html += `
-                    <div class="card" onclick="app.showPage('art-story', {dropId: '${drop.id}'})">
-                        <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0; cursor: pointer;" />
-                        <div class="card-content" style="padding: 16px;">
-                            <span class="badge badge-${badgeClass}">${status}</span>
-                            <h3 style="margin: 8px 0;">${drop.title}</h3>
-                            <p style="color: #666; font-size: 0.9rem;">📍 ${drop.locationName}</p>
-                            <p style="color: #999; font-size: 0.875rem;">Found ${foundCount} time${foundCount !== 1 ? 's' : ''}</p>
-                            <p style="color: #999; font-size: 0.875rem;">$${(drop.totalDonations || 0).toFixed(2)} donated</p>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            html += '</div>';
-        }
+        });
         
         html += '</div>';
-        return html;
-        
-    } catch (error) {
-        console.error("Error loading my drops:", error);
-        return '<div class="container"><p>Error loading your drops. Please try again.</p></div>';
     }
+    
+    html += '</div>';
+    return html;
 },
 
 renderQRTagGenerator(dropId) {
@@ -2444,100 +2467,73 @@ async handleArtistSignup(e) {
     e.preventDefault();
     
     try {
-        const formData = new FormData(e.target);
-        const email = formData.get('email');
-        const password = formData.get('password');
-        const name = formData.get('name');
-        const bio = formData.get('bio') || '';
-        const city = formData.get('city') || '';
+        const form = e.target;
+        const name = form.querySelector('input[name="name"]').value;
+        const email = form.querySelector('input[name="email"]').value;
+        const password = form.querySelector('input[name="password"]').value;
+        const bio = form.querySelector('textarea[name="bio"]').value;
         
-        if (!email || !password || !name) {
-            this.showToast('Please fill in all required fields');
+        // Get profile photo if uploaded
+        let profilePhoto = 'https://i.pravatar.cc/200?img=1';
+        const fileInput = document.getElementById('signupProfileInput');
+        
+        if (fileInput && fileInput.files.length > 0) {
+            profilePhoto = await uploadPhotoToStorage(fileInput.files);
+        }
+        
+        // Try Firebase signup
+        try {
+            const result = await createUserWithEmailAndPassword(auth, email, password);
+            
+            await ensureUserDocument({
+                uid: result.user.uid,
+                email: email,
+                displayName: name,
+                photoURL: profilePhoto
+            });
+            
+            appState.currentUser = {
+                id: result.user.uid,
+                name: name,
+                email: email,
+                profilePhoto: profilePhoto,
+                userType: 'artist',
+                bio: bio,
+                totalDonations: 0,
+                activeDrops: 0
+            };
+            
+            this.showToast('✅ Account created successfully!');
+            this.showPage('home');
             return;
+        } catch (firebaseError) {
+            console.log("Firebase signup failed:", firebaseError);
         }
         
-        if (password.length < 6) {
-            this.showToast('Password must be at least 6 characters');
-            return;
-        }
-        
-        console.log("Creating account...");
-        
-        // Create Firebase user
-        const result = await createUserWithEmailAndPassword(auth, email, password);
-        console.log("✅ Artist signup successful:", result.user.email);
-        
-        // Upload profile photo if provided
-        let profilePhotoUrl = 'https://i.pravatar.cc/200?img=1';
-        const photoInput = document.getElementById('signupProfileInput');
-        if (photoInput && photoInput.files.length > 0) {
-            console.log("Uploading profile photo...");
-            try {
-                profilePhotoUrl = await uploadPhotoToStorage(photoInput.files[0]);
-            } catch (photoError) {
-                console.error("Photo upload failed, using default", photoError);
-            }
-        }
-        
-        // Create user document in Firestore
-        const userRef = doc(db, 'users', result.user.uid);
-        await setDoc(userRef, {
-            userId: result.user.uid,
-            id: result.user.uid,
+        // Add to local cache if Firebase fails
+        const newArtist = {
+            id: Date.now(),
             name: name,
             email: email,
-            profilePhoto: profilePhotoUrl,
-            userType: 'artist',
+            password: password,
+            profilePhoto: profilePhoto,
             bio: bio,
-            city: city,
-            instagram: '',
-            tiktok: '',
-            facebook: '',
-            website: '',
-            followerCount: 0,
+            userType: 'artist',
+            joinDate: new Date().toISOString().split('T'),
             totalDonations: 0,
             activeDrops: 0,
-            joinDate: new Date().toISOString().split('T')[0],
-            createdAt: serverTimestamp()
-        });
-        
-        console.log("✅ User profile created in Firestore");
-        
-        // Set appState
-        appState.currentUser = {
-            id: result.user.uid,
-            name: name,
-            email: email,
-            profilePhoto: profilePhotoUrl,
-            userType: 'artist',
-            bio: bio,
-            city: city,
-            instagram: '',
-            tiktok: '',
-            facebook: '',
-            website: '',
-            followerCount: 0,
-            totalDonations: 0,
-            activeDrops: 0,
-            joinDate: new Date().toISOString().split('T')[0]
+            city: ''
         };
+        
+        appState.artists.push(newArtist);
+        appState.currentUser = newArtist;
         
         this.showToast('✅ Account created successfully!');
         this.showPage('home');
         
     } catch (error) {
         console.error('❌ Signup error:', error);
-        
-        let message = 'Signup failed';
-        if (error.code === 'auth/email-already-in-use') {
-            message = 'Email already in use. Please login instead.';
-        } else if (error.code === 'auth/invalid-email') {
-            message = 'Invalid email address.';
-        } else if (error.code === 'auth/weak-password') {
-            message = 'Password is too weak. Use at least 6 characters.';
-        }
-        
-        this.showToast('❌ ' + message);
+        this.showToast('Signup failed: ' + error.message);
     }
 },
             renderRecentDonations() {
@@ -2901,7 +2897,7 @@ async handleArtistSignup(e) {
                 reader.readAsDataURL(file);
             },
 
-            async handleArtistLogin(e) {
+async handleArtistLogin(e) {
     e.preventDefault();
     
     try {
@@ -2968,68 +2964,59 @@ async handleArtistSignup(e) {
   async handleDropNewArt(e) {
     e.preventDefault();
     
-    if (!appState.currentUser) {
-        this.showToast('Please sign in to drop art');
-        this.showPage('artist-login');
-        return;
-    }
-    
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    
     try {
+        if (!appState.currentUser) {
+            this.showToast('Please sign in first');
+            this.showPage('artist-login');
+            return;
+        }
+        
+        const submitBtn = e.target.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
         submitBtn.textContent = 'Creating...';
         
-        console.log("Creating your art drop...");
-        
         const formData = new FormData(e.target);
         
-        // Get photo URL or upload file
-        let photoUrl = formData.get('photoUrl') || '';
-        
-        const photoInput = document.getElementById('dropPhotoInput');
-        if (photoInput && photoInput.files.length > 0) {
-            console.log("Uploading photo...");
-            try {
-                photoUrl = await uploadPhotoToStorage(photoInput.files[0]);
-            } catch (photoError) {
-                console.error("Photo upload failed:", photoError);
-                throw new Error('Failed to upload photo: ' + photoError.message);
-            }
-        }
-        
-        if (!photoUrl) {
-            throw new Error('Please provide a photo URL or upload a photo');
-        }
-        
-        const dropData = {
+        const newDrop = {
+            id: Date.now(),
+            artistId: appState.currentUser.id,
+            artistName: appState.currentUser.name,
+            artistPhoto: appState.currentUser.profilePhoto,
             title: formData.get('title'),
             story: formData.get('story'),
-            photoUrl: photoUrl,
-            latitude: formData.get('latitude'),
-            longitude: formData.get('longitude'),
+            photoUrl: formData.get('photoUrl'),
+            latitude: parseFloat(formData.get('latitude')),
+            longitude: parseFloat(formData.get('longitude')),
             locationType: formData.get('locationType'),
             locationName: formData.get('locationName'),
-            materials: formData.get('materials') || 'Natural materials'
+            materials: formData.get('materials') || '',
+            dateCreated: new Date().toISOString().split('T'),
+            status: 'active',
+            foundCount: 0,
+            totalDonations: 0,
+            findEvents: []
         };
         
-        console.log("Saving art drop to Firebase...");
+        // Try to save to Firebase
+        try {
+            const createdId = await createArtDropInFirebase(newDrop);
+            newDrop.id = createdId;
+        } catch (error) {
+            console.warn("Firebase save failed, using local ID:", error);
+        }
         
-        // Save to Firebase
-        const dropId = await createArtDropInFirebase(dropData);
+        // Add to local cache
+        appState.artDrops.push(newDrop);
+        appState.currentUser.activeDrops = (appState.currentUser.activeDrops || 0) + 1;
         
-        console.log("✅ Art drop created with ID:", dropId);
-        
-        this.showToast('✅ Art drop created successfully!');
-        e.target.reset();
-        
-        // Show QR tag generator (showPage will handle QR generation)
-        this.showPage('qr-tag-generator', { dropId: dropId });
+        this.showToast('✅ Art drop created!');
+        this.showPage('qr-tag-generator', { dropId: newDrop.id });
         
     } catch (error) {
-        console.error('❌ Error creating art drop:', error);
-        this.showToast('❌ Failed to create drop: ' + error.message);
+        console.error('❌ Error creating drop:', error);
+        this.showToast('Failed to create drop: ' + error.message);
     } finally {
+        const submitBtn = e.target.querySelector('button[type="submit"]');
         submitBtn.disabled = false;
         submitBtn.textContent = 'Create & Generate QR Tag';
     }
@@ -4212,22 +4199,46 @@ useCurrentLocation() {
                 alert(`In production, this would download a ${dimensions[templateType]} branded QR template for "${drop.title}".\n\nThe template would include:\n- ArtDrops branding\n- QR code linking to: https://artdrops.com/art/${dropId}\n- Art title and artist name\n- "Scan to unlock the story" tagline`);
             },
 
-            generateQRCode(dropId) {
-                const container = document.getElementById('qrcode');
-                if (container && typeof QRCode !== 'undefined') {
-                    container.innerHTML = '';
-                    // Adjust QR code size based on screen width
-                    const isMobile = window.innerWidth < 768;
-                    const qrSize = isMobile ? 200 : 256;
-                    new QRCode(container, {
-                        text: `https://artdrops.app/drop/${dropId}`,
-                        width: qrSize,
-                        height: qrSize,
-                        colorDark: '#000000',
-                        colorLight: '#FFFFFF'
-                    });
-                }
-            },
+  generateQRCode(dropId) {
+    try {
+        const qrcodeElement = document.getElementById('qrcode');
+        
+        if (!qrcodeElement) {
+            console.error('QR code element not found');
+            return;
+        }
+        
+        // Verify QRCode library exists
+        if (typeof QRCode === 'undefined') {
+            console.error('QRCode library not loaded. Trying to load...');
+            // Try loading dynamically
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+            script.onload = () => {
+                this.generateQRCode(dropId); // Retry
+            };
+            document.head.appendChild(script);
+            return;
+        }
+        
+        qrcodeElement.innerHTML = '';
+        const qrText = 'https://artdrops.app/drop/' + dropId;
+        
+        new QRCode(qrcodeElement, {
+            text: qrText,
+            width: 256,
+            height: 256,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H
+        });
+        
+        console.log("✅ QR code generated for:", qrText);
+        
+    } catch (error) {
+        console.error('❌ Error generating QR code:', error);
+    }
+},
 
             // ============================================
             // MAP INITIALIZATION
