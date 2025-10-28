@@ -1055,47 +1055,51 @@ const appState = {
 
             renderHome() {
                 if (!appState.currentUser) {
-                    this.showPage('landing');
-                    return;
-                }
-                
-                return `
-                    <div class="container">
-                        <div class="hero" style="padding: 3rem 2rem;">
-                            <h1 style="font-size: 2.5rem; display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;">
-                                Welcome back, ${appState.currentUser.name}!
-                                <svg class="icon-large" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>
-                                </svg>
-                            </h1>
-                            <p style="font-size: 1.1rem;">Ready to drop some art into the world?</p>
-                        </div>
-                        
-                        <div class="stats-grid">
-                            <div class="stat-card">
-                                <div class="stat-value">${appState.currentUser.activeDrops}</div>
-                                <div class="stat-label">Active Drops</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-value">$${appState.currentUser.totalDonations.toFixed(2)}</div>
-                                <div class="stat-label">Total Donations</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-value">${this.getMyFoundCount()}</div>
-                                <div class="stat-label">Times Found</div>
-                            </div>
-                        </div>
-                        
-                        <div style="display: flex; gap: 1rem; margin: 3rem 0; flex-wrap: wrap; justify-content: center;">
-                            <button class="btn btn-primary btn-large" onclick="app.showPage('drop-new-art')" style="flex: 1; min-width: 200px; max-width: 300px;">Drop New Art</button>
-                            <button class="btn btn-secondary" onclick="app.showPage('my-drops')" style="flex: 1; min-width: 200px; max-width: 300px;">View My Drops</button>
-                            <button class="btn btn-secondary" onclick="app.showPage('browse-map')" style="flex: 1; min-width: 200px; max-width: 300px;">Browse Map</button>
-                        </div>
-                        
-                        <h2 style="margin: 2rem 0 1rem;">Recent Activity</h2>
-                        ${this.renderRecentActivity()}
-                    </div>
-                `;
+        this.showPage('landing');
+        return '';
+    }
+    
+    // SAFE ACCESS with fallback values
+    const totalDonations = (appState.currentUser.totalDonations || 0).toFixed(2);
+    const activeDrops = appState.currentUser.activeDrops || 0;
+    
+    return `
+        <div class="container">
+            <div class="hero" style="padding: 3rem 2rem;">
+                <h1 style="font-size: 2.5rem; display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;">
+                    Welcome back, ${appState.currentUser.name}!
+                    <svg class="icon-large" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>
+                    </svg>
+                </h1>
+                <p style="font-size: 1.1rem;">Ready to drop some art into the world?</p>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">${activeDrops}</div>
+                    <div class="stat-label">Active Drops</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">$${totalDonations}</div>
+                    <div class="stat-label">Total Donations</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${this.getMyFoundCount()}</div>
+                    <div class="stat-label">Times Found</div>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 1rem; margin: 3rem 0; flex-wrap: wrap; justify-content: center;">
+                <button class="btn btn-primary btn-large" onclick="app.showPage('drop-new-art')" style="flex: 1; min-width: 200px; max-width: 300px;">Drop New Art</button>
+                <button class="btn btn-secondary" onclick="app.showPage('my-drops')" style="flex: 1; min-width: 200px; max-width: 300px;">View My Drops</button>
+                <button class="btn btn-secondary" onclick="app.showPage('browse-map')" style="flex: 1; min-width: 200px; max-width: 300px;">Browse Map</button>
+            </div>
+            
+            <h2 style="margin: 2rem 0 1rem;">Recent Activity</h2>
+            ${this.renderRecentActivity()}
+        </div>
+    `;
             },
 
             renderBrowseMap() {
@@ -1128,49 +1132,52 @@ const appState = {
             },
 
             renderArtistDashboard() {
-                if (!appState.currentUser) {
-                    this.showPage('artist-login');
-                    return;
-                }
-                
-                const myDrops = appState.artDrops.filter(d => d.artistId === appState.currentUser.id);
-                const activeDrops = myDrops.filter(d => d.status === 'active');
-                const foundDrops = myDrops.filter(d => d.status === 'found');
-                
-                return `
-                    <div class="container">
-                        <h1 style="margin-bottom: 0.5rem;">Artist Dashboard</h1>
-                        <p style="color: var(--text-gray); margin-bottom: 2rem; font-size: 1rem;">Manage your art drops and view donations</p>
-                        
-                        <div class="stats-grid">
-                            <div class="stat-card">
-                                <div class="stat-value">${myDrops.length}</div>
-                                <div class="stat-label">Total Drops</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-value">${activeDrops.length}</div>
-                                <div class="stat-label">Active</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-value">${foundDrops.length}</div>
-                                <div class="stat-label">Found</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-value">$${appState.currentUser.totalDonations.toFixed(2)}</div>
-                                <div class="stat-label">Total Donations</div>
-                            </div>
-                        </div>
-                        
-                        <div style="display: flex; gap: 1rem; margin: 3rem 0; flex-wrap: wrap; justify-content: center;">
-                            <button class="btn btn-primary" onclick="app.showPage('drop-new-art')" style="flex: 1; min-width: 150px; max-width: 250px;">Drop New Art</button>
-                            <button class="btn btn-secondary" onclick="app.showPage('my-drops')" style="flex: 1; min-width: 150px; max-width: 250px;">View All Drops</button>
-                            <button class="btn btn-secondary" onclick="app.showPage('edit-profile')" style="flex: 1; min-width: 150px; max-width: 250px;">Edit Profile</button>
-                        </div>
-                        
-                        <h2 style="margin-top: 5rem;">Recent Donations &amp; Messages</h2>
-                        ${this.renderRecentDonations()}
-                    </div>
-                `;
+               if (!appState.currentUser) {
+        this.showPage('artist-login');
+        return '';
+    }
+    
+    const myDrops = appState.artDrops.filter(d => d.artistId === appState.currentUser.id);
+    const activeDrops = myDrops.filter(d => d.status === 'active');
+    const foundDrops = myDrops.filter(d => d.status === 'found');
+    
+    // SAFE ACCESS
+    const totalDonations = (appState.currentUser.totalDonations || 0).toFixed(2);
+    
+    return `
+        <div class="container">
+            <h1 style="margin-bottom: 0.5rem;">Artist Dashboard</h1>
+            <p style="color: var(--text-gray); margin-bottom: 2rem; font-size: 1rem;">Manage your art drops and view donations</p>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">${myDrops.length}</div>
+                    <div class="stat-label">Total Drops</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${activeDrops.length}</div>
+                    <div class="stat-label">Active</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${foundDrops.length}</div>
+                    <div class="stat-label">Found</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">$${totalDonations}</div>
+                    <div class="stat-label">Total Donations</div>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 1rem; margin: 3rem 0; flex-wrap: wrap; justify-content: center;">
+                <button class="btn btn-primary" onclick="app.showPage('drop-new-art')" style="flex: 1; min-width: 150px; max-width: 250px;">Drop New Art</button>
+                <button class="btn btn-secondary" onclick="app.showPage('my-drops')" style="flex: 1; min-width: 150px; max-width: 250px;">View All Drops</button>
+                <button class="btn btn-secondary" onclick="app.showPage('edit-profile')" style="flex: 1; min-width: 150px; max-width: 250px;">Edit Profile</button>
+            </div>
+            
+            <h2 style="margin-top: 5rem;">Recent Donations & Messages</h2>
+            ${this.renderRecentDonations()}
+        </div>
+    `;
             },
 
             renderDropNewArt() {
