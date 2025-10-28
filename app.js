@@ -697,7 +697,7 @@ const appState = {
                 return `${Math.round(distance)} miles away`;
             },
 
-            showPage(page, data) {
+  showPage(page, data) {
     appState.currentPage = page;
     const appContainer = document.getElementById('app');
     
@@ -712,25 +712,25 @@ const appState = {
                         this.showPage('artist-login');
                         return;
                     }
-                    // Load from Firebase before rendering
                     await loadArtDropsFromFirebase();
                     appContainer.innerHTML = this.renderMyDrops();
                     break;
                     
                 case 'popular-locations':
-                    // Load from Firebase before rendering
                     await loadPopularLocationsFromFirebase();
                     appContainer.innerHTML = this.renderPopularLocations();
                     break;
                     
                 case 'feed':
-                    // Load from Firebase before rendering
+                    if (!appState.currentUser) {
+                        this.showPage('finder-login');
+                        return;
+                    }
                     await loadArtDropsFromFirebase();
                     appContainer.innerHTML = this.renderFeed();
                     break;
                     
                 case 'browse-map':
-                    // Load from Firebase before rendering
                     await loadArtDropsFromFirebase();
                     appContainer.innerHTML = this.renderBrowseMap();
                     setTimeout(() => this.initBrowseMap(), 300);
@@ -741,7 +741,6 @@ const appState = {
                         this.showPage('artist-login');
                         return;
                     }
-                    // Load user's drops from Firebase
                     await loadArtDropsFromFirebase();
                     appContainer.innerHTML = this.renderArtistDashboard();
                     break;
@@ -751,7 +750,6 @@ const appState = {
                         this.showPage('finder-login');
                         return;
                     }
-                    // Load art drops for collection display
                     await loadArtDropsFromFirebase();
                     appContainer.innerHTML = this.renderMyCollection();
                     break;
@@ -759,7 +757,6 @@ const appState = {
                 // PAGES THAT DON'T NEED FIREBASE (Synchronous)
                 
                 case 'landing':
-                    // Pre-load data in background for landing page display
                     loadArtDropsFromFirebase().catch(err => console.log("Background load:", err));
                     loadLocationsFromFirebase().catch(err => console.log("Background load:", err));
                     appContainer.innerHTML = this.renderLanding();
@@ -815,7 +812,6 @@ const appState = {
                         this.showPage('browse-map');
                         return;
                     }
-                    // Load from Firebase to get latest data
                     await loadArtDropsFromFirebase();
                     appContainer.innerHTML = this.renderArtStory(data.dropId);
                     setTimeout(() => this.initArtStoryMap(data.dropId), 300);
@@ -871,7 +867,6 @@ const appState = {
                         this.showPage('home');
                         return;
                     }
-                    // Load drops from Firebase to show complete artist profile
                     await loadArtDropsFromFirebase();
                     appContainer.innerHTML = this.renderArtistProfile(data.artistId);
                     setTimeout(() => this.initArtistMapPreview(data.artistId), 300);
@@ -892,7 +887,6 @@ const appState = {
                         this.showPage('popular-locations');
                         return;
                     }
-                    // Load all data for location detail view
                     await loadArtDropsFromFirebase();
                     await loadLocationsFromFirebase();
                     appContainer.innerHTML = this.renderLocationDetail(data.locationId);
@@ -1578,7 +1572,6 @@ renderMyDrops() {
         return ''
     }
     
-    // ✅ Use local appState cache - will be populated by Firebase loader
     const myDrops = appState.artDrops.filter(d => d.artistId === appState.currentUser.id);
     
     console.log("User has", myDrops.length, "drops");
@@ -1604,6 +1597,7 @@ renderMyDrops() {
         `;
     } else {
         html += '<div class="drops-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">';
+        
         myDrops.forEach(drop => {
             const status = drop.status === 'active' ? '✓ Active' : '🎯 Found';
             const badgeClass = drop.status === 'active' ? 'active' : 'found';
@@ -1622,6 +1616,7 @@ renderMyDrops() {
                 </div>
             `;
         });
+        
         html += '</div>';
     }
     
@@ -3787,11 +3782,7 @@ useCurrentLocation() {
         return ''
     }
     
-    // ✅ Use local appState cache populated by loadArtDropsFromFirebase()
-    // in showPage() which called this render function
     const artDrops = appState.artDrops || [];
-    
-    // Filter for active drops (not yet found)
     const activeDrops = artDrops.filter(d => d.status === 'active');
     
     let feedHTML = `
@@ -3817,12 +3808,9 @@ useCurrentLocation() {
             </div>
         `;
     } else {
-        feedHTML += `
-            <div class="feed-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
-        `;
+        feedHTML += '<div class="feed-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">';
         
         activeDrops.forEach(drop => {
-            // Calculate distance if user has location
             let distanceText = '';
             if (appState.userLocation) {
                 const distance = this.calculateDistance(
@@ -3831,9 +3819,7 @@ useCurrentLocation() {
                     drop.latitude,
                     drop.longitude
                 );
-                distanceText = `<p style="color: #999; font-size: 0.85rem; margin-top: 8px;">
-                    📍 ${this.formatDistance(distance)}
-                </p>`;
+                distanceText = `<p style="color: #999; font-size: 0.85rem; margin-top: 8px;">📍 ${this.formatDistance(distance)}</p>`;
             }
             
             feedHTML += `
@@ -3844,12 +3830,8 @@ useCurrentLocation() {
                             Active
                         </span>
                         <h3 style="margin: 8px 0; font-weight: 600; font-size: 1.1rem;">${drop.title}</h3>
-                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">
-                            📍 ${drop.locationName}
-                        </p>
-                        <p style="color: #999; font-size: 0.875rem; margin-bottom: 4px;">
-                            by <strong>${drop.artistName}</strong>
-                        </p>
+                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">📍 ${drop.locationName}</p>
+                        <p style="color: #999; font-size: 0.875rem; margin-bottom: 4px;">by <strong>${drop.artistName}</strong></p>
                         ${distanceText}
                         <div style="display: flex; gap: 8px; margin-top: 12px; font-size: 0.8rem; color: var(--text-gray);">
                             <span>Found ${drop.foundCount || 0} time${(drop.foundCount || 0) !== 1 ? 's' : ''}</span>
@@ -3861,9 +3843,7 @@ useCurrentLocation() {
             `;
         });
         
-        feedHTML += `
-            </div>
-        `;
+        feedHTML += '</div>';
     }
     
     feedHTML += `
@@ -4190,8 +4170,6 @@ useCurrentLocation() {
             },
 
    renderPopularLocations() {
-    // ✅ Use local appState cache populated by loadPopularLocationsFromFirebase()
-    // in showPage() which called this render function
     const locations = appState.locations || [];
     
     let html = `
@@ -4218,7 +4196,6 @@ useCurrentLocation() {
             const followers = location.followerCount || 0;
             const drops = location.activeDropCount || 0;
             
-            // Determine if user is following this location
             const isFollowing = appState.currentUser ? 
                 appState.follows.some(f => 
                     f.followerId === appState.currentUser.id && 
@@ -4231,25 +4208,10 @@ useCurrentLocation() {
                     <img src="${location.locationPhoto}" alt="${location.name}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;" />
                     <div class="card-content" style="padding: 16px;">
                         <h3 style="margin: 0 0 8px 0; font-weight: 600; font-size: 1.1rem;">${location.name}</h3>
-                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">
-                            📍 ${location.city}, ${location.state}
-                        </p>
+                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">📍 ${location.city}, ${location.state}</p>
                         <div style="display: flex; justify-content: space-between; font-size: 0.875rem; color: #999; margin-bottom: 12px;">
-                            <span style="display: flex; align-items: center; gap: 4px;">
-                                <svg class="icon" style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                                    <circle cx="9" cy="7" r="4"/>
-                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
-                                </svg>
-                                ${followers} follower${followers !== 1 ? 's' : ''}
-                            </span>
-                            <span style="display: flex; align-items: center; gap: 4px;">
-                                <svg class="icon" style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                                    <circle cx="12" cy="10" r="3"/>
-                                </svg>
-                                ${drops} drop${drops !== 1 ? 's' : ''}
-                            </span>
+                            <span>${followers} follower${followers !== 1 ? 's' : ''}</span>
+                            <span>${drops} drop${drops !== 1 ? 's' : ''}</span>
                         </div>
                         <button class="btn btn-primary" onclick="event.stopPropagation(); app.toggleFollowLocation(${location.id})" style="width: 100%; min-height: 40px; font-size: 0.9rem;">
                             ${isFollowing ? '✓ Following' : 'Follow Location'}
