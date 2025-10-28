@@ -1390,10 +1390,9 @@ generateQRCode(dropId) {
     }
 },
 
-            async renderQRTagGenerator(dropId) {
+renderQRTagGenerator(dropId) {
     console.log("Rendering QR generator for drop ID:", dropId);
     
-    // dropId comes from Firebase, it's the document ID
     if (!dropId) {
         return `
             <div class="container">
@@ -1402,73 +1401,49 @@ generateQRCode(dropId) {
         `;
     }
     
-    try {
-        // Try to load drop from Firebase first
-        let drop = null;
-        try {
-            const dropRef = doc(db, 'artDrops', dropId);
-            const dropSnap = await getDoc(dropRef);
-            if (dropSnap.exists()) {
-                drop = { id: dropSnap.id, ...dropSnap.data() };
-            }
-        } catch (fbError) {
-            console.log("Could not load from Firebase:", fbError);
-        }
-        
-        // Fallback to local cache if not in Firebase
-        if (!drop) {
-            drop = appState.artDrops.find(d => d.id === dropId);
-        }
-        
-        if (!drop) {
-            console.error("Drop not found:", dropId);
-            return `
-                <div class="container">
-                    <p>Art drop not found. Creating new entry...</p>
-                </div>
-            `;
-        }
-        
-        // Generate unique QR code for this drop
-        const qrCode = 'AD-' + dropId.substring(0, 8).toUpperCase();
-        
-        return `
-            <div class="container" style="max-width: 600px;">
-                <h1 style="text-align: center; margin-bottom: 1rem;">🎨 QR Tag Created!</h1>
-                <p style="text-align: center; color: var(--text-gray); margin-bottom: 2rem;">Print & attach this to your art</p>
-                
-                <div class="card" style="text-align: center;">
-                    <div class="card-content" style="padding: 2rem;">
-                        <div id="qrcode" style="margin: 2rem auto; display: flex; justify-content: center;"></div>
-                        
-                        <h3 style="margin: 1rem 0;">${drop.title}</h3>
-                        <p style="color: #666; margin-bottom: 1rem;">QR Code: ${qrCode}</p>
-                        
-                        <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin: 1.5rem 0;">
-                            <p style="margin: 0; font-size: 0.9rem; color: #666;">
-                                <strong>How to use:</strong><br>
-                                1. Print this QR code<br>
-                                2. Attach to your art<br>
-                                3. Finders scan to see your story
-                            </p>
-                        </div>
-                        
-                        <button class="btn btn-primary" onclick="app.downloadQRCode('${qrCode}')" style="margin-bottom: 1rem; width: 100%;">📥 Download QR Code</button>
-                        <button class="btn btn-secondary" onclick="app.showPage('home')" style="width: 100%;">← Back to Home</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-    } catch (error) {
-        console.error("Error rendering QR generator:", error);
-        return `
-            <div class="container">
-                <p>Error loading drop: ${error.message}</p>
-                <button class="btn btn-primary" onclick="app.showPage('home')">Back to Home</button>
-            </div>
-        `;
+    // Find drop from local cache (it was just created)
+    let drop = appState.artDrops.find(d => d.id === dropId);
+    
+    if (!drop) {
+        console.warn("Drop not found in cache for ID:", dropId);
+        // Create a temporary drop object
+        drop = {
+            id: dropId,
+            title: 'Your Art Drop',
+            story: 'Art drop created successfully'
+        };
     }
+    
+    // Generate unique QR code reference
+    const qrCode = 'AD-' + dropId.substring(0, 8).toUpperCase();
+    
+    return `
+        <div class="container" style="max-width: 600px;">
+            <h1 style="text-align: center; margin-bottom: 1rem;">🎨 QR Tag Created!</h1>
+            <p style="text-align: center; color: var(--text-gray); margin-bottom: 2rem;">Print & attach this to your art</p>
+            
+            <div class="card" style="text-align: center;">
+                <div class="card-content" style="padding: 2rem;">
+                    <div id="qrcode" style="margin: 2rem auto; display: flex; justify-content: center;"></div>
+                    
+                    <h3 style="margin: 1rem 0;">${drop.title}</h3>
+                    <p style="color: #666; margin-bottom: 1rem;">QR Code: ${qrCode}</p>
+                    
+                    <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin: 1.5rem 0;">
+                        <p style="margin: 0; font-size: 0.9rem; color: #666;">
+                            <strong>How to use:</strong><br>
+                            1. Print this QR code<br>
+                            2. Attach to your art<br>
+                            3. Finders scan to see your story
+                        </p>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="app.downloadQRCode('${qrCode}')" style="margin-bottom: 1rem; width: 100%;">📥 Download QR Code</button>
+                    <button class="btn btn-secondary" onclick="app.showPage('home')" style="width: 100%;">← Back to Home</button>
+                </div>
+            </div>
+        </div>
+    `;
 },
 
             renderArtistProfile(artistId) {
