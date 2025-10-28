@@ -51,7 +51,52 @@ const storage = getStorage(app);
 // Keep your app working with existing sample data while Firebase is optional
 window.useFirebase = true; // Set to true when Firebase is configured
 
+// ============================================
+// FIREBASE HELPER FUNCTIONS
+// Add these AFTER Firebase initialization
+// and BEFORE your app object starts
+// ============================================
 
+async function ensureUserDocument(user) {
+    try {
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        
+        if (!userSnap.exists()) {
+            // Create new user document
+            console.log("Creating new user document for:", user.email);
+            
+            await setDoc(userRef, {
+                userId: user.uid,
+                id: user.uid,
+                name: user.displayName || 'User',
+                email: user.email,
+                profilePhoto: user.photoURL || '',
+                userType: 'artist',
+                bio: '',
+                city: '',
+                instagram: '',
+                tiktok: '',
+                facebook: '',
+                website: '',
+                followerCount: 0,
+                totalDonations: 0,
+                activeDrops: 0,
+                joinDate: new Date().toISOString().split('T')[0],
+                createdAt: new Date().toISOString()
+            });
+            
+            console.log("User document created successfully!");
+        } else {
+            console.log("User document already exists");
+        }
+        
+        return userSnap;
+    } catch (error) {
+        console.error("Error ensuring user document:", error);
+        throw error;
+    }
+}
  // ============================================
         // DATA STRUCTURES (In-Memory Storage)
         // ============================================
