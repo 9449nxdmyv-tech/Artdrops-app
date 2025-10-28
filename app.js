@@ -3760,124 +3760,152 @@ const appState = {
                 // Not using map on landing for minimalist approach
             },
 
-            initBrowseMap() {
-                if (typeof L === 'undefined') {
-                    console.error('Leaflet library not loaded');
-                    return;
-                }
-                const mapEl = document.getElementById('browseMap');
-                if (!mapEl) {
-                    console.error('Map element not found');
-                    return;
-                }
-                
-                try {
-                    // Center on user location if available, otherwise default
-                    const centerLat = appState.userLocation ? appState.userLocation.latitude : 39.8283;
-                    const centerLon = appState.userLocation ? appState.userLocation.longitude : -98.5795;
-                    const zoomLevel = appState.userLocation ? 10 : 4;
-                    
-                    const map = L.map('browseMap').setView([centerLat, centerLon], zoomLevel);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '© OpenStreetMap contributors',
-                        maxZoom: 19
-                    }).addTo(map);
-                    
-                    // Force map to refresh size
-                    setTimeout(() => {
-                        map.invalidateSize();
-                    }, 100);
-                    
-                    // Add user location marker if available
-                    let userMarker = null;
-                    if (appState.userLocation) {
-                        userMarker = L.marker([appState.userLocation.latitude, appState.userLocation.longitude], {
-                            icon: L.divIcon({
-                                className: 'user-location-marker',
-                                html: '<div style="background: #000; color: #fff; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 3px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>',
-                                iconSize: [24, 24]
-                            })
-                        }).addTo(map);
-                        userMarker.bindPopup('You are here');
-                    }
-                    
-                    // Add Locate Me button
-                    const locateControl = L.control({ position: 'bottomright' });
-                    locateControl.onAdd = function(map) {
-                        const div = L.DomUtil.create('div', 'locate-me-btn');
-                        div.innerHTML = '<button style="background: var(--primary-black); color: var(--primary-white); border: none; padding: 12px; border-radius: 50%; width: 48px; height: 48px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></button>';
-                        div.onclick = function() {
-                            if (navigator.geolocation) {
-                                navigator.geolocation.getCurrentPosition(
-                                    (position) => {
-                                        appState.userLocation = {
-                                            latitude: position.coords.latitude,
-                                            longitude: position.coords.longitude
-                                        };
-                                        map.setView([position.coords.latitude, position.coords.longitude], 13);
-                                        if (userMarker) {
-                                            map.removeLayer(userMarker);
-                                        }
-                                        userMarker = L.marker([position.coords.latitude, position.coords.longitude], {
-                                            icon: L.divIcon({
-                                                className: 'user-location-marker',
-                                                html: '<div style="background: #000; color: #fff; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 3px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>',
-                                                iconSize: [24, 24]
-                                            })
-                                        }).addTo(map);
-                                        userMarker.bindPopup('You are here').openPopup();
-                                    },
-                                    (error) => {
-                                        alert('Unable to get your location. Please enable location services.');
-                                    }
-                                );
-                            } else {
-                                alert('Geolocation is not supported by your browser.');
+            async initBrowseMap() {
+    if (typeof L === 'undefined') {
+        console.error('Leaflet library not loaded');
+        return;
+    }
+    const mapEl = document.getElementById('browseMap');
+    if (!mapEl) {
+        console.error('Map element not found');
+        return;
+    }
+    
+    try {
+        // Center on user location if available, otherwise default
+        const centerLat = appState.userLocation ? appState.userLocation.latitude : 39.8283;
+        const centerLon = appState.userLocation ? appState.userLocation.longitude : -98.5795;
+        const zoomLevel = appState.userLocation ? 10 : 4;
+        
+        const map = L.map('browseMap').setView([centerLat, centerLon], zoomLevel);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        // Force map to refresh size
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 100);
+        
+        // Add user location marker if available
+        let userMarker = null;
+        if (appState.userLocation) {
+            userMarker = L.marker([appState.userLocation.latitude, appState.userLocation.longitude], {
+                icon: L.divIcon({
+                    className: 'user-location-marker',
+                    html: '<div style="background: #000; color: #fff; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 3px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>',
+                    iconSize: [24, 24]
+                })
+            }).addTo(map);
+            userMarker.bindPopup('You are here');
+        }
+        
+        // Add Locate Me button
+        const locateControl = L.control({ position: 'bottomright' });
+        locateControl.onAdd = function(mapInstance) {
+            const div = L.DomUtil.create('div', 'locate-me-btn');
+            div.innerHTML = '<button style="background: var(--primary-black); color: var(--primary-white); border: none; padding: 12px; border-radius: 50%; width: 48px; height: 48px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></button>';
+            div.onclick = function() {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            appState.userLocation = {
+                                latitude: position.coords.latitude,
+                                longitude: position.coords.longitude
+                            };
+                            mapInstance.setView([position.coords.latitude, position.coords.longitude], 13);
+                            if (userMarker) {
+                                mapInstance.removeLayer(userMarker);
                             }
-                        };
-                        return div;
-                    };
-                    locateControl.addTo(map);
-                
-                appState.artDrops.forEach(drop => {
-                    const iconColor = drop.status === 'active' ? '#000000' : '#666666';
-                    
-                    // Calculate distance if user location available
-                    let distanceText = '';
-                    if (appState.userLocation) {
-                        const distance = this.calculateDistance(
-                            appState.userLocation.latitude,
-                            appState.userLocation.longitude,
-                            drop.latitude,
-                            drop.longitude
-                        );
-                        distanceText = `<p style="font-size: 0.85rem; color: #666666; margin: 0.5rem 0; display: flex; align-items: center; gap: 4px; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg> ${this.formatDistance(distance)}</p>`;
-                    }
-                    
-                    const marker = L.marker([drop.latitude, drop.longitude]).addTo(map);
-                    marker.bindPopup(`
-                        <div style="text-align: center; min-width: 180px;">
-                            <img src="${drop.photoUrl}" style="width: 150px; height: 100px; object-fit: cover; margin-bottom: 1rem; border: 1px solid #E0E0E0;">
-                            <h4 style="margin: 0.5rem 0; color: #000000;">${drop.title}</h4>
-                            <p style="font-size: 0.85rem; color: #666666; margin: 0.5rem 0;">by ${drop.artistName}</p>
-                            ${distanceText}
-                            <span style="background: ${drop.status === 'active' ? '#FFFFFF' : '#000000'}; color: ${drop.status === 'active' ? '#000000' : '#FFFFFF'}; padding: 0.5rem 1rem; border: 1px solid #000000; font-size: 0.75rem; display: inline-block; margin: 1rem 0;">${drop.status === 'active' ? 'Active' : 'Found'}</span>
-                            <button onclick="app.showPage('art-story', {dropId: ${drop.id}})" style="margin-top: 1rem; padding: 1rem; background: #000000; color: #FFFFFF; border: none; cursor: pointer; width: 100%; font-weight: 600;">View Story</button>
-                        </div>
-                    `);
-                });
-                    // Add click handler for markers
-                    map.on('popupopen', function() {
-                        // Ensure buttons in popups work
-                        const popupButtons = document.querySelectorAll('.leaflet-popup button');
-                        popupButtons.forEach(btn => {
-                            btn.style.cursor = 'pointer';
-                        });
-                    });
-                } catch (error) {
-                    console.error('Error initializing browse map:', error);
+                            userMarker = L.marker([position.coords.latitude, position.coords.longitude], {
+                                icon: L.divIcon({
+                                    className: 'user-location-marker',
+                                    html: '<div style="background: #000; color: #fff; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 3px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>',
+                                    iconSize: [24, 24]
+                                })
+                            }).addTo(mapInstance);
+                            userMarker.bindPopup('You are here').openPopup();
+                        },
+                        (error) => {
+                            alert('Unable to get your location. Please enable location services.');
+                        }
+                    );
+                } else {
+                    alert('Geolocation is not supported by your browser.');
                 }
-            },
+            };
+            return div;
+        };
+        locateControl.addTo(map);
+        
+        // ============================================
+        // FIREBASE INTEGRATION - Load art drops
+        // ============================================
+        
+        let artDrops = [];
+        
+        try {
+            // Try to load from Firebase first
+            console.log('Loading art drops from Firebase...');
+            const firebaseDrops = await getFirebaseArtDrops({ status: 'active' });
+            
+            if (firebaseDrops && firebaseDrops.length > 0) {
+                artDrops = firebaseDrops;
+                console.log('✅ Loaded', artDrops.length, 'drops from Firebase');
+            } else {
+                // Fallback to in-memory data
+                artDrops = appState.artDrops;
+                console.log('Using', artDrops.length, 'drops from memory');
+            }
+        } catch (error) {
+            console.error('Error loading Firebase drops, using fallback data:', error);
+            artDrops = appState.artDrops;
+        }
+        
+        // Add markers for each art drop
+        artDrops.forEach(drop => {
+            const iconColor = drop.status === 'active' ? '#000000' : '#666666';
+            
+            // Calculate distance if user location available
+            let distanceText = '';
+            if (appState.userLocation) {
+                const distance = this.calculateDistance(
+                    appState.userLocation.latitude,
+                    appState.userLocation.longitude,
+                    drop.latitude,
+                    drop.longitude
+                );
+                distanceText = `<p style="font-size: 0.85rem; color: #666666; margin: 0.5rem 0; display: flex; align-items: center; gap: 4px; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg> ${this.formatDistance(distance)}</p>`;
+            }
+            
+            const marker = L.marker([drop.latitude, drop.longitude]).addTo(map);
+            marker.bindPopup(`
+                <div style="text-align: center; min-width: 180px;">
+                    <img src="${drop.photoUrl}" style="width: 150px; height: 100px; object-fit: cover; margin-bottom: 1rem; border: 1px solid #E0E0E0;">
+                    <h4 style="margin: 0.5rem 0; color: #000000;">${drop.title}</h4>
+                    <p style="font-size: 0.85rem; color: #666666; margin: 0.5rem 0;">by ${drop.artistName}</p>
+                    ${distanceText}
+                    <span style="background: ${drop.status === 'active' ? '#FFFFFF' : '#000000'}; color: ${drop.status === 'active' ? '#000000' : '#FFFFFF'}; padding: 0.5rem 1rem; border: 1px solid #000000; font-size: 0.75rem; display: inline-block; margin: 1rem 0;">${drop.status === 'active' ? 'Active' : 'Found'}</span>
+                    <button onclick="app.showPage('art-story', {dropId: '${drop.id}'})" style="margin-top: 1rem; padding: 1rem; background: #000000; color: #FFFFFF; border: none; cursor: pointer; width: 100%; font-weight: 600;">View Story</button>
+                </div>
+            `);
+        });
+        
+        // Add click handler for markers
+        map.on('popupopen', function() {
+            // Ensure buttons in popups work
+            const popupButtons = document.querySelectorAll('.leaflet-popup button');
+            popupButtons.forEach(btn => {
+                btn.style.cursor = 'pointer';
+            });
+        });
+        
+    } catch (error) {
+        console.error('Error initializing browse map:', error);
+    }
+},
+
 
             initDropLocationMap() {
                 if (typeof L === 'undefined') {
