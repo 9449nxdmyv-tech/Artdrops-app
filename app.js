@@ -1355,70 +1355,86 @@ const appState = {
     }
 },
 
-            renderQRTagGenerator(dropId) {
-                const drop = appState.artDrops.find(d => d.id === dropId);
-                const qrUrl = `https://artdrops.com/art/${drop.id}`;
+            async renderQRTagGenerator(dropId) {
+    console.log("Rendering QR generator for drop ID:", dropId);
+    
+    // dropId comes from Firebase, it's the document ID
+    if (!dropId) {
+        return `
+            <div class="container">
+                <p>Error: No drop ID provided</p>
+            </div>
+        `;
+    }
+    
+    try {
+        // Try to load drop from Firebase first
+        let drop = null;
+        try {
+            const dropRef = doc(db, 'artDrops', dropId);
+            const dropSnap = await getDoc(dropRef);
+            if (dropSnap.exists()) {
+                drop = { id: dropSnap.id, ...dropSnap.data() };
+            }
+        } catch (fbError) {
+            console.log("Could not load from Firebase:", fbError);
+        }
+        
+        // Fallback to local cache if not in Firebase
+        if (!drop) {
+            drop = appState.artDrops.find(d => d.id === dropId);
+        }
+        
+        if (!drop) {
+            console.error("Drop not found:", dropId);
+            return `
+                <div class="container">
+                    <p>Art drop not found. Creating new entry...</p>
+                </div>
+            `;
+        }
+        
+        // Generate unique QR code for this drop
+        const qrCode = 'AD-' + dropId.substring(0, 8).toUpperCase();
+        
+        return `
+            <div class="container" style="max-width: 600px;">
+                <h1 style="text-align: center; margin-bottom: 1rem;">🎨 QR Tag Created!</h1>
+                <p style="text-align: center; color: var(--text-gray); margin-bottom: 2rem;">Print & attach this to your art</p>
                 
-                return `
-                    <div class="container" style="max-width: 900px;">
-                        <h1 style="text-align: center;">Branded QR Tag Generator</h1>
-                        <p style="color: var(--text-gray); margin-bottom: 3rem; font-size: 1.1rem; text-align: center;">Professional QR codes for maximum engagement</p>
+                <div class="card" style="text-align: center;">
+                    <div class="card-content" style="padding: 2rem;">
+                        <div id="qrcode" style="margin: 2rem auto; display: flex; justify-content: center;"></div>
                         
-                        <div class="card">
-                            <div class="card-content" style="padding: 2rem;">
-                                <div style="text-align: center; margin-bottom: 2rem; padding: 2rem; border: 2px solid var(--border-gray); background: var(--primary-white);">
-                                    <div style="font-size: 1.5rem; font-weight: 600; margin-bottom: 2rem; letter-spacing: 0.1em;">ARTDROPS</div>
-                                    <div id="qrcode" style="margin: 2rem auto;"></div>
-                                    <div style="font-size: 1.2rem; font-weight: 600; margin: 2rem 0 0.5rem; color: var(--primary-black);">${drop.title}</div>
-                                    <div style="font-size: 0.9rem; color: var(--text-gray); margin-bottom: 1.5rem;">by ${drop.artistName}</div>
-                                    <div style="font-size: 0.85rem; font-style: italic; color: var(--text-gray);">Scan to unlock the story</div>
-                                </div>
-                                
-                                <h3 style="margin: 3rem 0 2rem; text-align: center;">Choose Your Template</h3>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 3rem;">
-                                    <div style="border: 1px solid var(--border-gray); padding: 1.5rem; text-align: center; cursor: pointer;" onclick="app.downloadQRTemplate('sticker', ${dropId})">
-                                        <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.5rem;">Sticker</div>
-                                        <div style="font-size: 0.9rem; color: var(--text-gray); margin-bottom: 1rem;">2x2 inches</div>
-                                        <div style="font-size: 0.85rem; color: var(--text-gray); line-height: 1.6; margin-bottom: 1.5rem;">Compact weatherproof design for rocks, shells, small items</div>
-                                        <button class="btn btn-secondary" style="width: 100%; font-size: 16px; min-height: 44px;">Download PNG</button>
-                                    </div>
-                                    <div style="border: 1px solid var(--border-gray); padding: 2rem; text-align: center; cursor: pointer;" onclick="app.downloadQRTemplate('card', ${dropId})">
-                                        <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.5rem;">Card</div>
-                                        <div style="font-size: 0.9rem; color: var(--text-gray); margin-bottom: 1rem;">3x4 inches</div>
-                                        <div style="font-size: 0.85rem; color: var(--text-gray); line-height: 1.6; margin-bottom: 1.5rem;">Laminated tag with hole for sticks, driftwood, larger items</div>
-                                        <button class="btn btn-secondary" style="width: 100%; font-size: 16px; min-height: 44px;">Download PNG</button>
-                                    </div>
-                                    <div style="border: 1px solid var(--border-gray); padding: 2rem; text-align: center; cursor: pointer;" onclick="app.downloadQRTemplate('bookmark', ${dropId})">
-                                        <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.5rem;">Bookmark</div>
-                                        <div style="font-size: 0.9rem; color: var(--text-gray); margin-bottom: 1rem;">2x6 inches</div>
-                                        <div style="font-size: 0.85rem; color: var(--text-gray); line-height: 1.6; margin-bottom: 1.5rem;">Slim vertical design for books, libraries, tall items</div>
-                                        <button class="btn btn-secondary" style="width: 100%; font-size: 16px; min-height: 44px;">Download PNG</button>
-                                    </div>
-                                    <div style="border: 1px solid var(--border-gray); padding: 2rem; text-align: center; cursor: pointer;" onclick="app.downloadQRTemplate('poster', ${dropId})">
-                                        <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.5rem;">Poster</div>
-                                        <div style="font-size: 0.9rem; color: var(--text-gray); margin-bottom: 1rem;">8.5x11 inches</div>
-                                        <div style="font-size: 0.85rem; color: var(--text-gray); line-height: 1.6; margin-bottom: 1.5rem;">Display format for events, exhibitions</div>
-                                        <button class="btn btn-secondary" style="width: 100%; font-size: 16px; min-height: 44px;">Download PNG</button>
-                                    </div>
-                                </div>
-                                
-                                <div class="alert alert-info" style="margin-bottom: 2rem;">
-                                    <strong>Print Instructions:</strong><br>
-                                    • Use high-quality paper or sticker sheets<br>
-                                    • For outdoor drops, laminate or use waterproof materials<br>
-                                    • Test QR code before attaching to your art<br>
-                                    • Attach securely with strong adhesive or string
-                                </div>
-                                
-                                <div style="display: flex; gap: 1rem; margin-top: 2rem; flex-wrap: wrap;">
-                                    <button class="btn btn-primary" onclick="window.print()" style="flex: 1; min-width: 150px; min-height: 48px;">Print Current View</button>
-                                    <button class="btn btn-secondary" onclick="app.showPage('my-drops')" style="flex: 1; min-width: 150px; min-height: 48px;">Back to My Drops</button>
-                                </div>
-                            </div>
+                        <h3 style="margin: 1rem 0;">${drop.title}</h3>
+                        <p style="color: #666; margin-bottom: 1rem;">QR Code: ${qrCode}</p>
+                        
+                        <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin: 1.5rem 0;">
+                            <p style="margin: 0; font-size: 0.9rem; color: #666;">
+                                <strong>How to use:</strong><br>
+                                1. Print this QR code<br>
+                                2. Attach to your art<br>
+                                3. Finders scan to see your story
+                            </p>
                         </div>
+                        
+                        <button class="btn btn-primary" onclick="app.downloadQRCode('${qrCode}')" style="margin-bottom: 1rem; width: 100%;">📥 Download QR Code</button>
+                        <button class="btn btn-secondary" onclick="app.showPage('home')" style="width: 100%;">← Back to Home</button>
                     </div>
-                `;
-            },
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error("Error rendering QR generator:", error);
+        return `
+            <div class="container">
+                <p>Error loading drop: ${error.message}</p>
+                <button class="btn btn-primary" onclick="app.showPage('home')">Back to Home</button>
+            </div>
+        `;
+    }
+},
 
             renderArtistProfile(artistId) {
                 const artist = appState.artists.find(a => a.id === artistId);
@@ -2999,7 +3015,24 @@ async handleArtistSignup(e) {
         
         // Show QR tag generator
         this.showPage('qr-tag-generator', { dropId: dropId });
-        
+        if (page === 'qr-tag-generator') {
+    setTimeout(() => {
+        const qrcodeElement = document.getElementById('qrcode');
+        if (qrcodeElement && typeof QRCode !== 'undefined') {
+            qrcodeElement.innerHTML = ''; // Clear
+            const dropId = data.dropId;
+            const qrCode = 'AD-' + dropId.substring(0, 8).toUpperCase();
+            new QRCode(qrcodeElement, {
+                text: 'https://artdrops.app/drop/' + dropId,
+                width: 256,
+                height: 256,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+    }, 100);
+}
     } catch (error) {
         console.error('❌ Error creating art drop:', error);
         this.showToast('❌ Failed to create drop: ' + error.message);
@@ -3245,6 +3278,39 @@ useCurrentLocation() {
             // ============================================
             // HELPER METHODS
             // ============================================
+
+            downloadQRCode(qrCode) {
+    try {
+        // Get the QR code element
+        const qrcodeElement = document.getElementById('qrcode');
+        
+        if (!qrcodeElement) {
+            this.showToast('QR code not found');
+            return;
+        }
+        
+        // Get the canvas from QRCode library
+        const canvas = qrcodeElement.querySelector('canvas');
+        
+        if (!canvas) {
+            this.showToast('QR code canvas not found');
+            return;
+        }
+        
+        // Download the image
+        const image = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = image;
+        link.download = qrCode + '.png';
+        link.click();
+        
+        this.showToast('✅ QR code downloaded!');
+        
+    } catch (error) {
+        console.error('Error downloading QR code:', error);
+        this.showToast('❌ Failed to download QR code');
+    }
+},
 
             getMyFoundCount() {
                 if (!appState.currentUser) return 0;
