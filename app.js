@@ -593,10 +593,40 @@ const appState = {
         
         const app = {
             init() {
-                this.requestLocationPermission();
-                this.showPage('landing');
-                this.updateNav();
-            },
+    console.log("🚀 Initializing ArtDrops app...");
+    
+    // Step 1: Request location permission
+    this.requestLocationPermission();
+    
+    // Step 2: Load Firebase data in the background
+    (async () => {
+        try {
+            console.log("🔄 Loading Firebase data...");
+            
+            // Load both datasets in parallel
+            const [artDrops, locations] = await Promise.all([
+                loadArtDropsFromFirebase(),
+                loadLocationsFromFirebase()
+            ]);
+            
+            console.log("✅ Firebase data loaded successfully");
+            console.log("   - Art Drops:", artDrops.length);
+            console.log("   - Locations:", locations.length);
+            
+        } catch (error) {
+            console.error("❌ Error loading Firebase data:", error);
+            console.log("⚠️ Using demo data from appState");
+        }
+    })();
+    
+    // Step 3: Show landing page (doesn't wait for data)
+    this.showPage('landing');
+    
+    // Step 4: Initialize navigation
+    this.updateNav();
+    
+    console.log("✅ App initialized");
+},
 
             requestLocationPermission() {
                 if (navigator.geolocation) {
@@ -3752,65 +3782,104 @@ useCurrentLocation() {
 },
 
  renderFeed() {
-    const feedContainer = document.getElementById('feedContent');
-    
-    if (feedContainer) {
-        feedContainer.innerHTML = '<div style="text-align: center; padding: 40px;"><div class="spinner"></div><p>Loading art drops...</p></div>';
+    if (!appState.currentUser) {
+        this.showPage('finder-login');
+        return ''
     }
     
-    try {
-        // Load from Firebase
-        const firebaseDrops = await getFirebaseArtDrops({ limit: 20 });
-        const artDrops = firebaseDrops.length > 0 ? firebaseDrops : appState.artDrops;
-        
-        console.log("Displaying", artDrops.length, "drops in feed");
-        
-        if (artDrops.length === 0) {
-            return `
-                <div class="container">
-                    <h2 style="padding: 20px 0;">Discover Art</h2>
-                    <div class="empty-state" style="text-align: center; padding: 60px 20px;">
-                        <p>No art drops yet. Check back soon!</p>
-                    </div>
-                </div>
-            `;
-        }
-        
-        let feedHTML = `
-            <div class="container">
-                <h2 style="padding: 20px 0;">Discover Art</h2>
-                <div class="feed-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+    // ✅ Use local appState cache populated by loadArtDropsFromFirebase()
+    // in showPage() which called this render function
+    const artDrops = appState.artDrops || [];
+    
+    // Filter for active drops (not yet found)
+    const activeDrops = artDrops.filter(d => d.status === 'active');
+    
+    let feedHTML = `
+        <div class="container">
+            <h1 style="margin-bottom: 0.5rem;">Discover Art</h1>
+            <p style="color: var(--text-gray); margin-bottom: 2rem; font-size: 1rem;">
+                Find hidden art treasures near you and around the world
+            </p>
+    `;
+    
+    if (activeDrops.length === 0) {
+        feedHTML += `
+            <div class="empty-state" style="text-align: center; padding: 60px 20px;">
+                <svg class="icon" style="width: 80px; height: 80px; margin-bottom: 20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                </svg>
+                <h3>No art drops yet</h3>
+                <p>Check back soon or explore the map to find art!</p>
+                <button class="btn btn-primary" onclick="app.showPage('browse-map')" style="min-height: 48px; margin-top: 1rem;">
+                    View Map
+                </button>
+            </div>
+        `;
+    } else {
+        feedHTML += `
+            <div class="feed-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
         `;
         
-        artDrops.forEach(drop => {
-            const status = drop.status === 'active' ? '✓ Active' : '🎯 Found';
-            const badgeClass = drop.status === 'active' ? 'active' : 'found';
+        activeDrops.forEach(drop => {
+            // Calculate distance if user has location
+            let distanceText = '';
+            if (appState.userLocation) {
+                const distance = this.calculateDistance(
+                    appState.userLocation.latitude,
+                    appState.userLocation.longitude,
+                    drop.latitude,
+                    drop.longitude
+                );
+                distanceText = `<p style="color: #999; font-size: 0.85rem; margin-top: 8px;">
+                    📍 ${this.formatDistance(distance)}
+                </p>`;
+            }
             
             feedHTML += `
-                <div class="feed-card card" onclick="app.showPage('art-story', {dropId: '${drop.id}'})">
+                <div class="feed-card card" onclick="app.showPage('art-story', {dropId: ${drop.id}})" style="cursor: pointer;">
                     <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; height: 250px; object-fit: cover; border-radius: 8px 8px 0 0;" />
-                    <div class="card-content" style="padding: 16px; cursor: pointer;">
-                        <span class="badge badge-${badgeClass}">${status}</span>
-                        <h3 style="margin: 8px 0;">${drop.title}</h3>
-                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">${drop.story.substring(0, 100)}...</p>
-                        <p style="color: #999; font-size: 0.875rem;">by ${drop.artistName}</p>
-                        <p style="color: #999; font-size: 0.875rem;">📍 ${drop.locationName}</p>
+                    <div class="card-content" style="padding: 16px;">
+                        <span class="badge" style="display: inline-block; padding: 4px 12px; background: var(--primary-black); color: white; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin-bottom: 8px;">
+                            Active
+                        </span>
+                        <h3 style="margin: 8px 0; font-weight: 600; font-size: 1.1rem;">${drop.title}</h3>
+                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">
+                            📍 ${drop.locationName}
+                        </p>
+                        <p style="color: #999; font-size: 0.875rem; margin-bottom: 4px;">
+                            by <strong>${drop.artistName}</strong>
+                        </p>
+                        ${distanceText}
+                        <div style="display: flex; gap: 8px; margin-top: 12px; font-size: 0.8rem; color: var(--text-gray);">
+                            <span>Found ${drop.foundCount || 0} time${(drop.foundCount || 0) !== 1 ? 's' : ''}</span>
+                            <span>•</span>
+                            <span>$${(drop.totalDonations || 0).toFixed(2)} donated</span>
+                        </div>
                     </div>
                 </div>
             `;
         });
         
         feedHTML += `
-                </div>
             </div>
         `;
-        
-        return feedHTML;
-        
-    } catch (error) {
-        console.error("Error loading feed:", error);
-        return '<div class="container"><p>Error loading feed. Please try again.</p></div>';
     }
+    
+    feedHTML += `
+            <div style="text-align: center; margin-top: 3rem; padding: 2rem 1rem; background: var(--light-gray); border-radius: 12px;">
+                <h3 style="margin-bottom: 1rem;">Want More Control?</h3>
+                <p style="color: var(--text-gray); margin-bottom: 1rem;">
+                    Use the interactive map to filter by location type, distance, and status.
+                </p>
+                <button class="btn btn-primary" onclick="app.showPage('browse-map')" style="min-height: 44px;">
+                    Open Map View
+                </button>
+            </div>
+        </div>
+    `;
+    
+    return feedHTML;
 },
             
             openDetailsOverlay(dropId) {
@@ -4121,51 +4190,91 @@ useCurrentLocation() {
             },
 
    renderPopularLocations() {
-    try {
-        // Load from Firebase
-        const firebaseLocations = await getFirebaseLocations();
-        const locations = firebaseLocations.length > 0 ? firebaseLocations : appState.locations;
-        
-        console.log("Displaying", locations.length, "locations");
-        
-        let html = `
-            <div class="container">
-                <h1>Popular Locations</h1>
-                <p style="color: var(--text-gray); margin-bottom: 2rem;">Discover hotspots for art drops</p>
-                <div class="locations-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+    // ✅ Use local appState cache populated by loadPopularLocationsFromFirebase()
+    // in showPage() which called this render function
+    const locations = appState.locations || [];
+    
+    let html = `
+        <div class="container">
+            <h1>Popular Locations</h1>
+            <p style="color: var(--text-gray); margin-bottom: 2rem;">Discover hotspots for art drops</p>
+            <div class="locations-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+    `;
+    
+    if (locations.length === 0) {
+        html += `
+            <div class="empty-state" style="text-align: center; padding: 60px 20px;">
+                <svg class="icon" style="width: 80px; height: 80px; margin-bottom: 20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <h3>No locations yet</h3>
+                <p>Check back soon as artists discover new locations!</p>
+            </div>
         `;
-        
+    } else {
         locations.forEach(location => {
             const followers = location.followerCount || 0;
             const drops = location.activeDropCount || 0;
             
+            // Determine if user is following this location
+            const isFollowing = appState.currentUser ? 
+                appState.follows.some(f => 
+                    f.followerId === appState.currentUser.id && 
+                    f.targetType === 'location' && 
+                    f.targetId === location.id
+                ) : false;
+            
             html += `
-                <div class="card" onclick="app.showPage('location-detail', {locationId: '${location.id}'})">
-                    <img src="${location.locationPhoto}" alt="${location.name}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0; cursor: pointer;" />
+                <div class="card" onclick="app.showPage('location-detail', {locationId: ${location.id}})" style="cursor: pointer;">
+                    <img src="${location.locationPhoto}" alt="${location.name}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;" />
                     <div class="card-content" style="padding: 16px;">
-                        <h3 style="margin: 0 0 8px 0;">${location.name}</h3>
-                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">${location.city}, ${location.state}</p>
-                        <div style="display: flex; justify-content: space-between; font-size: 0.875rem; color: #999;">
-                            <span>👥 ${followers} followers</span>
-                            <span>🎨 ${drops} drops</span>
+                        <h3 style="margin: 0 0 8px 0; font-weight: 600; font-size: 1.1rem;">${location.name}</h3>
+                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">
+                            📍 ${location.city}, ${location.state}
+                        </p>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.875rem; color: #999; margin-bottom: 12px;">
+                            <span style="display: flex; align-items: center; gap: 4px;">
+                                <svg class="icon" style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="9" cy="7" r="4"/>
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+                                </svg>
+                                ${followers} follower${followers !== 1 ? 's' : ''}
+                            </span>
+                            <span style="display: flex; align-items: center; gap: 4px;">
+                                <svg class="icon" style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                    <circle cx="12" cy="10" r="3"/>
+                                </svg>
+                                ${drops} drop${drops !== 1 ? 's' : ''}
+                            </span>
                         </div>
-                        <button class="btn btn-primary" onclick="event.stopPropagation(); app.toggleFollowLocation('${location.id}')" style="margin-top: 12px; width: 100%;">Follow</button>
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); app.toggleFollowLocation(${location.id})" style="width: 100%; min-height: 40px; font-size: 0.9rem;">
+                            ${isFollowing ? '✓ Following' : 'Follow Location'}
+                        </button>
                     </div>
                 </div>
             `;
         });
-        
-        html += `
-                </div>
-            </div>
-        `;
-        
-        return html;
-        
-    } catch (error) {
-        console.error("Error loading locations:", error);
-        return '<div class="container"><p>Error loading locations. Please try again.</p></div>';
     }
+    
+    html += `
+            </div>
+            <div style="text-align: center; margin-top: 2rem; padding: 2rem 1rem; background: var(--light-gray); border-radius: 12px;">
+                <h3 style="margin-bottom: 1rem;">Explore by Map</h3>
+                <p style="color: var(--text-gray); margin-bottom: 1rem;">
+                    Want to find art drops near you? Use the interactive map to discover locations in your area.
+                </p>
+                <button class="btn btn-primary" onclick="app.showPage('browse-map')" style="min-height: 44px;">
+                    View on Map
+                </button>
+            </div>
+        </div>
+    `;
+    
+    return html;
 },
 
             renderLocationDetail(locationId) {
