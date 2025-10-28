@@ -2943,87 +2943,76 @@ async handleArtistSignup(e) {
     e.preventDefault();
     
     if (!appState.currentUser) {
-        this.showToast('Please sign in first');
+        this.showToast('Please sign in to drop art');
         this.showPage('artist-login');
         return;
     }
     
-    this.showLoadingOverlay('Creating your art drop...');
+    const submitBtn = e.target.querySelector('button[type="submit"]');
     
     try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creating...';
+        
+        console.log("Creating your art drop...");
+        
         const formData = new FormData(e.target);
         
         // Get photo URL or upload file
         let photoUrl = formData.get('photoUrl') || '';
         
-        const photoInput = document.getElementById('dropPhotoInput') || e.target.querySelector('input[type="file"]');
+        const photoInput = document.getElementById('dropPhotoInput');
         if (photoInput && photoInput.files.length > 0) {
-            this.showLoadingOverlay('Uploading photo...');
-            photoUrl = await uploadPhotoToStorage(photoInput.files[0]);
+            console.log("Uploading photo...");
+            try {
+                photoUrl = await uploadPhotoToStorage(photoInput.files[0]);
+            } catch (photoError) {
+                console.error("Photo upload failed:", photoError);
+                throw new Error('Failed to upload photo: ' + photoError.message);
+            }
         }
         
         if (!photoUrl) {
             throw new Error('Please provide a photo URL or upload a photo');
         }
         
-        // Create Firebase document
-        const newDrop = {
-            artistId: appState.currentUser.id,
-            artistName: appState.currentUser.name,
-            artistPhoto: appState.currentUser.profilePhoto || '',
+        const dropData = {
             title: formData.get('title'),
             story: formData.get('story'),
             photoUrl: photoUrl,
-            latitude: parseFloat(formData.get('latitude')),
-            longitude: parseFloat(formData.get('longitude')),
+            latitude: formData.get('latitude'),
+            longitude: formData.get('longitude'),
             locationType: formData.get('locationType'),
             locationName: formData.get('locationName'),
-            materials: formData.get('materials') || '',
-            status: 'active',
-            dateCreated: serverTimestamp(),
-            totalDonations: 0,
-            foundCount: 0,
-            findEvents: []
+            materials: formData.get('materials') || 'Natural materials'
         };
         
+        console.log("Saving art drop to Firebase...");
+        
         // Save to Firebase
-        const docRef = await addDoc(collection(db, 'artDrops'), newDrop);
-        const dropId = docRef.id;
+        const dropId = await createArtDropInFirebase(dropData);
         
         console.log("✅ Art drop created with ID:", dropId);
         
-        // Update user's activeDrops count in Firebase
-        const userRef = doc(db, 'users', appState.currentUser.id);
-        await updateDoc(userRef, {
-            activeDrops: increment(1)
-        });
+        this.showToast('✅ Art drop created successfully!');
+        e.target.reset();
         
-        // Update local appState
-        appState.currentUser.activeDrops++;
-        
-        // Add to local cache too
-        appState.artDrops.push({
-            id: dropId,
-            ...newDrop
-        });
-        
-        setTimeout(() => {
-            this.hideLoadingOverlay();
-            this.showToast('✅ Art drop created!');
-            this.showPage('qr-tag-generator', { dropId: dropId });
-        }, 1500);
+        // Show QR tag generator
+        this.showPage('qr-tag-generator', { dropId: dropId });
         
     } catch (error) {
         console.error('❌ Error creating art drop:', error);
-        this.hideLoadingOverlay();
         this.showToast('❌ Failed to create drop: ' + error.message);
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Create & Generate QR Tag';
     }
 },
 
 async handleFoundSubmit(e, dropId) {
     e.preventDefault();
     
-    this.showLoadingOverlay('Recording your find...');
+    console.log("Recording your find...");
     
     try {
         const formData = new FormData(e.target);
@@ -3042,6 +3031,8 @@ async handleFoundSubmit(e, dropId) {
         if (!drop) {
             throw new Error('Art drop not found');
         }
+        
+        console.log("Recording find in Firebase...");
         
         // Update in Firebase
         const dropRef = doc(db, 'artDrops', dropId);
@@ -3087,15 +3078,11 @@ async handleFoundSubmit(e, dropId) {
             }
         }
         
-        setTimeout(() => {
-            this.hideLoadingOverlay();
-            this.showToast('✅ Find recorded!');
-            this.showPage('donation-flow', { dropId: dropId });
-        }, 1000);
+        this.showToast('✅ Find recorded!');
+        this.showPage('donation-flow', { dropId: dropId });
         
     } catch (error) {
         console.error('❌ Error recording find:', error);
-        this.hideLoadingOverlay();
         this.showToast('❌ Failed to record find: ' + error.message);
     }
 },
@@ -3105,9 +3092,10 @@ async handleFoundSubmit(e, dropId) {
                 if (overlay) overlay.remove();
             },
             
-            async handleDonation(e, dropId) {
+           async handleDonation(e, dropId) {
     e.preventDefault();
-    this.showLoadingOverlay('Processing donation...');
+    
+    console.log("Processing donation...");
     
     try {
         const formData = new FormData(e.target);
@@ -3118,7 +3106,6 @@ async handleFoundSubmit(e, dropId) {
         const amount = customAmount || presetAmount;
         
         if (!amount || amount < 1) {
-            this.hideLoadingOverlay();
             this.showToast('Please select or enter a donation amount');
             return;
         }
@@ -3132,6 +3119,8 @@ async handleFoundSubmit(e, dropId) {
         // Calculate fees
         const platformFee = amount * appState.platformCommission;
         const artistPayout = amount - platformFee;
+        
+        console.log("Creating donation record...");
         
         // Create donation record in Firebase
         const donationData = {
@@ -3189,16 +3178,11 @@ async handleFoundSubmit(e, dropId) {
             appState.currentUser.totalDonations = (appState.currentUser.totalDonations || 0) + artistPayout;
         }
         
-        // Simulate payment processing
-        setTimeout(() => {
-            this.hideLoadingOverlay();
-            this.showToast('✅ Thank you for your donation!');
-            this.showPage('thank-you', { dropId: dropId, amount: amount });
-        }, 1500);
+        this.showToast('✅ Thank you for your donation!');
+        this.showPage('thank-you', { dropId: dropId, amount: amount });
         
     } catch (error) {
         console.error('❌ Error processing donation:', error);
-        this.hideLoadingOverlay();
         this.showToast('❌ Failed to process donation: ' + error.message);
     }
 },
