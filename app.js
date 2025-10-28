@@ -154,15 +154,28 @@ async function getFirebaseLocations() {
 
 async function uploadPhotoToStorage(file) {
     try {
+        // Validate file
+        if (!file.type.match('image/(jpeg|png|gif|webp)')) {
+            throw new Error('Please upload a valid image file (JPG, PNG, GIF, or WebP)');
+        }
+        
+        if (file.size > 5 * 1024 * 1024) {
+            throw new Error('File size must be less than 5MB');
+        }
+        
         const timestamp = Date.now();
         const fileName = `${timestamp}_${file.name}`;
-        const storageRef = ref(storage, `art/${fileName}`);
+        const storageRef = ref(storage, `profiles/${auth.currentUser.uid}/${fileName}`);
         
+        // Upload file
         await uploadBytes(storageRef, file);
+        
+        // Get download URL
         const downloadURL = await getDownloadURL(storageRef);
         
-        console.log("✅ Photo uploaded");
+        console.log("✅ Photo uploaded successfully:", downloadURL);
         return downloadURL;
+        
     } catch (error) {
         console.error("❌ Error uploading photo:", error);
         throw error;
@@ -768,11 +781,26 @@ const appState = {
                 }
             },
 
-            logout() {
-                appState.currentUser = null;
-                this.showPage('landing');
-                this.showToast('Logged out successfully');
-            },
+            async logout() {
+    try {
+        this.showLoadingOverlay('Signing out...');
+        
+        // Firebase sign out
+        await firebaseSignOut(auth);
+        
+        // Clear appState
+        appState.currentUser = null;
+        
+        this.hideLoadingOverlay();
+        this.showToast('✅ Signed out successfully');
+        this.showPage('landing');
+        
+    } catch (error) {
+        console.error('❌ Logout error:', error);
+        this.hideLoadingOverlay();
+        this.showToast('❌ Logout failed');
+    }
+},
 
             // ============================================
             // RENDER METHODS
@@ -1257,68 +1285,75 @@ const appState = {
                 `;
             },
 
-            renderMyDrops() {
-                if (!appState.currentUser) {
-                    this.showPage('artist-login');
-                    return;
-                }
+            async renderMyDrops() {
+    if (!appState.currentUser) {
+        this.showPage('artist-login');
+        return '';
+    }
+    
+    try {
+        // Load user's drops from Firebase
+        const firebaseDrops = await getFirebaseArtDrops({ 
+            artistId: appState.currentUser.id 
+        });
+        
+        const myDrops = firebaseDrops.length > 0 ? firebaseDrops : 
+                        appState.artDrops.filter(d => d.artistId === appState.currentUser.id);
+        
+        console.log("User has", myDrops.length, "drops");
+        
+        let html = `
+            <div class="container">
+                <h1>My Drops</h1>
+                <p style="color: var(--text-gray); margin-bottom: 2rem;">Your art in the wild</p>
+        `;
+        
+        if (myDrops.length === 0) {
+            html += `
+                <div class="empty-state" style="text-align: center; padding: 60px 20px;">
+                    <svg class="icon" style="width: 80px; height: 80px; margin-bottom: 20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <h3>No art drops yet</h3>
+                    <p style="margin: 20px 0;">Be the first to drop art and spread joy!</p>
+                    <button class="btn btn-primary" onclick="app.showPage('drop-new-art')">Drop Your First Piece</button>
+                </div>
+            `;
+        } else {
+            html += '<div class="drops-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">';
+            
+            myDrops.forEach(drop => {
+                const status = drop.status === 'active' ? '✓ Active' : '🎯 Found';
+                const badgeClass = drop.status === 'active' ? 'active' : 'found';
+                const foundCount = drop.foundCount || 0;
                 
-                const myDrops = appState.artDrops.filter(d => d.artistId === appState.currentUser.id);
-                
-                return `
-                    <div class="container">
-                        <h1>My Drops</h1>
-                        <p style="color: var(--text-light); margin-bottom: 2rem;">Your art in the wild</p>
-                        
-                        ${myDrops.length > 0 ? `
-                            <div class="grid grid-3" style="animation: fadeInUp 0.5s ease-out;">
-                                ${myDrops.map(drop => `
-                                    <div class="card">
-                                        <img src="${drop.photoUrl}" alt="${drop.title}" class="card-image">
-                                        <div class="card-content">
-                                            <span class="badge badge-${drop.status === 'active' ? 'active' : 'found'}">
-                                                ${drop.status === 'active' ? '🟢 Active' : '🟠 Found'}
-                                            </span>
-                                            <span class="badge badge-location" style="margin-left: 0.5rem;">${drop.locationType}</span>
-                                            <h3 class="card-title">${drop.title}</h3>
-                                            <p class="card-story">${drop.story.substring(0, 100)}...</p>
-                                            <div class="card-meta">
-                                                <div style="font-size: 0.9rem; color: var(--text-gray);">Location: ${drop.locationName}</div>
-                                            </div>
-                                            <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border-gray); font-size: 0.9rem;">
-                                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                                    <span style="color: var(--text-gray);">Donations:</span>
-                                                    <span style="color: var(--sage-green); font-weight: 600;">$${drop.totalDonations.toFixed(2)}</span>
-                                                </div>
-                                                <div style="display: flex; justify-content: space-between;">
-                                                    <span style="color: var(--text-gray);">Found:</span>
-                                                    <span style="font-weight: 600;">${drop.foundCount} times</span>
-                                                </div>
-                                            </div>
-                                            <div style="display: flex; gap: 1.5rem; margin-top: 3rem;">
-                                                <button class="btn btn-primary" onclick="app.showPage('art-story', {dropId: ${drop.id}})" style="flex: 1;">View</button>
-                                                <button class="btn btn-secondary" onclick="app.showPage('qr-tag-generator', {dropId: ${drop.id}})" style="flex: 1;">QR Tag</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        ` : `
-                            <div class="empty-state">
-                                <div class="empty-state-icon">
-                                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="12" cy="8" r="7"/>
-                                        <path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/>
-                                    </svg>
-                                </div>
-                                <div class="empty-state-title">No art drops yet</div>
-                                <p class="empty-state-text">Be the first to drop art and spread joy in your community</p>
-                                <button class="btn btn-primary" onclick="app.showPage('drop-new-art')" style="min-height: 48px;">Drop Your First Piece</button>
-                            </div>
-                        `}
+                html += `
+                    <div class="card" onclick="app.showPage('art-story', {dropId: '${drop.id}'})">
+                        <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0; cursor: pointer;" />
+                        <div class="card-content" style="padding: 16px;">
+                            <span class="badge badge-${badgeClass}">${status}</span>
+                            <h3 style="margin: 8px 0;">${drop.title}</h3>
+                            <p style="color: #666; font-size: 0.9rem;">📍 ${drop.locationName}</p>
+                            <p style="color: #999; font-size: 0.875rem;">Found ${foundCount} time${foundCount !== 1 ? 's' : ''}</p>
+                            <p style="color: #999; font-size: 0.875rem;">$${(drop.totalDonations || 0).toFixed(2)} donated</p>
+                        </div>
                     </div>
                 `;
-            },
+            });
+            
+            html += '</div>';
+        }
+        
+        html += '</div>';
+        return html;
+        
+    } catch (error) {
+        console.error("Error loading my drops:", error);
+        return '<div class="container"><p>Error loading your drops. Please try again.</p></div>';
+    }
+},
 
             renderQRTagGenerator(dropId) {
                 const drop = appState.artDrops.find(d => d.id === dropId);
@@ -2379,7 +2414,104 @@ const appState = {
                     </div>
                 `;
             },
-
+async handleArtistSignup(e) {
+    e.preventDefault();
+    
+    try {
+        const formData = new FormData(e.target);
+        const email = formData.get('email');
+        const password = formData.get('password');
+        const name = formData.get('name');
+        const bio = formData.get('bio') || '';
+        const city = formData.get('city') || '';
+        
+        if (!email || !password || !name) {
+            this.showToast('Please fill in all required fields');
+            return;
+        }
+        
+        if (password.length < 6) {
+            this.showToast('Password must be at least 6 characters');
+            return;
+        }
+        
+        this.showLoadingOverlay('Creating account...');
+        
+        // Create Firebase user
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        console.log("✅ Artist signup successful:", result.user.email);
+        
+        // Upload profile photo if provided
+        let profilePhotoUrl = 'https://i.pravatar.cc/200?img=1';
+        const photoInput = document.getElementById('signupProfileInput');
+        if (photoInput && photoInput.files.length > 0) {
+            this.showLoadingOverlay('Uploading profile photo...');
+            profilePhotoUrl = await uploadPhotoToStorage(photoInput.files);
+        }
+        
+        // Create user document in Firestore
+        const userRef = doc(db, 'users', result.user.uid);
+        await setDoc(userRef, {
+            userId: result.user.uid,
+            id: result.user.uid,
+            name: name,
+            email: email,
+            profilePhoto: profilePhotoUrl,
+            userType: 'artist',
+            bio: bio,
+            city: city,
+            instagram: '',
+            tiktok: '',
+            facebook: '',
+            website: '',
+            followerCount: 0,
+            totalDonations: 0,
+            activeDrops: 0,
+            joinDate: new Date().toISOString().split('T'),
+            createdAt: serverTimestamp()
+        });
+        
+        console.log("✅ User profile created in Firestore");
+        
+        // Set appState
+        appState.currentUser = {
+            id: result.user.uid,
+            name: name,
+            email: email,
+            profilePhoto: profilePhotoUrl,
+            userType: 'artist',
+            bio: bio,
+            city: city,
+            instagram: '',
+            tiktok: '',
+            facebook: '',
+            website: '',
+            followerCount: 0,
+            totalDonations: 0,
+            activeDrops: 0,
+            joinDate: new Date().toISOString().split('T')
+        };
+        
+        this.hideLoadingOverlay();
+        this.showToast('✅ Account created successfully!');
+        this.showPage('home');
+        
+    } catch (error) {
+        console.error('❌ Signup error:', error);
+        this.hideLoadingOverlay();
+        
+        let message = 'Signup failed';
+        if (error.code === 'auth/email-already-in-use') {
+            message = 'Email already in use. Please login instead.';
+        } else if (error.code === 'auth/invalid-email') {
+            message = 'Invalid email address.';
+        } else if (error.code === 'auth/weak-password') {
+            message = 'Password is too weak. Use at least 6 characters.';
+        }
+        
+        this.showToast('❌ ' + message);
+    }
+},
             renderRecentDonations() {
                 if (!appState.currentUser) return '';
                 
@@ -2429,48 +2561,158 @@ const appState = {
             // EVENT HANDLERS
             // ============================================
 
-            handleFinderLogin(e) {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                const email = formData.get('email');
-                const password = formData.get('password');
-                
-                const finder = appState.finders.find(f => f.email === email && f.password === password);
-                
-                if (finder) {
-                    appState.currentUser = finder;
-                    this.showPage('feed');
-                    this.showToast('Welcome back, ' + finder.name + '!');
-                } else {
-                    alert('Invalid email or password');
-                }
-            },
+            async handleFinderLogin(e) {
+    e.preventDefault();
+    
+    try {
+        const formData = new FormData(e.target);
+        const email = formData.get('email');
+        const password = formData.get('password');
+        
+        if (!email || !password) {
+            this.showToast('Please enter email and password');
+            return;
+        }
+        
+        this.showLoadingOverlay('Signing in...');
+        
+        // Firebase Authentication
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        console.log("✅ Finder login successful:", result.user.email);
+        
+        // Load user profile from Firestore
+        const userRef = doc(db, 'users', result.user.uid);
+        const userSnap = await getDoc(userRef);
+        
+        if (userSnap.exists()) {
+            const userData = userSnap.data();
+            
+            appState.currentUser = {
+                id: result.user.uid,
+                name: userData.name || result.user.displayName || 'Finder',
+                email: result.user.email,
+                profilePhoto: userData.profilePhoto || result.user.photoURL || 'https://i.pravatar.cc/200?img=50',
+                userType: userData.userType || 'finder',
+                bio: userData.bio || '',
+                city: userData.city || '',
+                foundArt: userData.foundArt || [],
+                followedArtists: userData.followedArtists || [],
+                followedLocations: userData.followedLocations || [],
+                totalFinds: userData.totalFinds || 0,
+                joinDate: userData.joinDate || new Date().toISOString().split('T')
+            };
+        }
+        
+        this.hideLoadingOverlay();
+        this.showToast('✅ Welcome back, ' + appState.currentUser.name + '!');
+        this.showPage('feed');
+        
+    } catch (error) {
+        console.error('❌ Login error:', error);
+        this.hideLoadingOverlay();
+        
+        let message = 'Login failed';
+        if (error.code === 'auth/user-not-found') {
+            message = 'User not found. Please sign up first.';
+        } else if (error.code === 'auth/wrong-password') {
+            message = 'Incorrect password.';
+        }
+        
+        this.showToast('❌ ' + message);
+    }
+},
 
-            handleFinderSignup(e) {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                
-                const newFinder = {
-                    id: appState.finders.length + appState.artists.length + 1,
-                    name: formData.get('name'),
-                    email: formData.get('email'),
-                    password: formData.get('password'),
-                    bio: formData.get('bio') || '',
-                    profilePhoto: appState.tempProfilePhoto || '',
-                    userType: 'finder',
-                    foundArt: [],
-                    followedArtists: [],
-                    followedLocations: [],
-                    totalFinds: 0,
-                    joinDate: new Date().toISOString().split('T')[0]
-                };
-                
-                appState.finders.push(newFinder);
-                appState.currentUser = newFinder;
-                appState.tempProfilePhoto = null;
-                this.showPage('feed');
-                this.showToast('Welcome to ArtDrops, ' + newFinder.name + '!');
-            },
+            async handleFinderSignup(e) {
+    e.preventDefault();
+    
+    try {
+        const formData = new FormData(e.target);
+        const email = formData.get('email');
+        const password = formData.get('password');
+        const name = formData.get('name');
+        const city = formData.get('city') || '';
+        
+        if (!email || !password || !name) {
+            this.showToast('Please fill in all required fields');
+            return;
+        }
+        
+        if (password.length < 6) {
+            this.showToast('Password must be at least 6 characters');
+            return;
+        }
+        
+        this.showLoadingOverlay('Creating account...');
+        
+        // Create Firebase user
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        console.log("✅ Finder signup successful:", result.user.email);
+        
+        // Upload profile photo if provided
+        let profilePhotoUrl = 'https://i.pravatar.cc/200?img=50';
+        const photoInput = document.getElementById('finderSignupProfileInput');
+        if (photoInput && photoInput.files.length > 0) {
+            this.showLoadingOverlay('Uploading profile photo...');
+            profilePhotoUrl = await uploadPhotoToStorage(photoInput.files);
+        }
+        
+        // Create user document in Firestore
+        const userRef = doc(db, 'users', result.user.uid);
+        await setDoc(userRef, {
+            userId: result.user.uid,
+            id: result.user.uid,
+            name: name,
+            email: email,
+            profilePhoto: profilePhotoUrl,
+            userType: 'finder',
+            bio: '',
+            city: city,
+            foundArt: [],
+            followedArtists: [],
+            followedLocations: [],
+            totalFinds: 0,
+            joinDate: new Date().toISOString().split('T'),
+            createdAt: serverTimestamp()
+        });
+        
+        console.log("✅ Finder profile created in Firestore");
+        
+        // Set appState
+        appState.currentUser = {
+            id: result.user.uid,
+            name: name,
+            email: email,
+            profilePhoto: profilePhotoUrl,
+            userType: 'finder',
+            bio: '',
+            city: city,
+            foundArt: [],
+            followedArtists: [],
+            followedLocations: [],
+            totalFinds: 0,
+            joinDate: new Date().toISOString().split('T')
+        };
+        
+        this.hideLoadingOverlay();
+        this.showToast('✅ Account created successfully!');
+        this.showPage('feed');
+        
+    } catch (error) {
+        console.error('❌ Signup error:', error);
+        this.hideLoadingOverlay();
+        
+        let message = 'Signup failed';
+        if (error.code === 'auth/email-already-in-use') {
+            message = 'Email already in use. Please login instead.';
+        } else if (error.code === 'auth/invalid-email') {
+            message = 'Invalid email address.';
+        } else if (error.code === 'auth/weak-password') {
+            message = 'Password is too weak. Use at least 6 characters.';
+        }
+        
+        this.showToast('❌ ' + message);
+    }
+},
 
             signInWithApple() {
                 const provider = new OAuthProvider('apple.com');
@@ -2629,47 +2871,73 @@ const appState = {
                 reader.readAsDataURL(file);
             },
 
-            handleArtistLogin(e) {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                const email = formData.get('email');
-                const password = formData.get('password');
-                
-                const artist = appState.artists.find(a => a.email === email && a.password === password);
-                
-                if (artist) {
-                    appState.currentUser = artist;
-                    this.showPage('home');
-                    this.showToast('Welcome back, ' + artist.name + '!');
-                } else {
-                    alert('Invalid email or password');
-                }
-            },
+            async handleArtistLogin(e) {
+    e.preventDefault();
+    
+    try {
+        const formData = new FormData(e.target);
+        const email = formData.get('email');
+        const password = formData.get('password');
+        
+        if (!email || !password) {
+            this.showToast('Please enter email and password');
+            return;
+        }
+        
+        this.showLoadingOverlay('Signing in...');
+        
+        // Firebase Authentication
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        console.log("✅ Artist login successful:", result.user.email);
+        
+        // Load user profile from Firestore
+        const userRef = doc(db, 'users', result.user.uid);
+        const userSnap = await getDoc(userRef);
+        
+        if (userSnap.exists()) {
+            const userData = userSnap.data();
+            
+            appState.currentUser = {
+                id: result.user.uid,
+                name: userData.name || result.user.displayName || 'Artist',
+                email: result.user.email,
+                profilePhoto: userData.profilePhoto || result.user.photoURL || 'https://i.pravatar.cc/200?img=1',
+                userType: userData.userType || 'artist',
+                bio: userData.bio || '',
+                city: userData.city || '',
+                instagram: userData.instagram || '',
+                tiktok: userData.tiktok || '',
+                facebook: userData.facebook || '',
+                website: userData.website || '',
+                followerCount: userData.followerCount || 0,
+                totalDonations: userData.totalDonations || 0,
+                activeDrops: userData.activeDrops || 0,
+                joinDate: userData.joinDate || new Date().toISOString().split('T')
+            };
+        }
+        
+        this.hideLoadingOverlay();
+        this.showToast('✅ Welcome back, ' + appState.currentUser.name + '!');
+        this.showPage('home');
+        
+    } catch (error) {
+        console.error('❌ Login error:', error);
+        this.hideLoadingOverlay();
+        
+        let message = 'Login failed';
+        if (error.code === 'auth/user-not-found') {
+            message = 'User not found. Please sign up first.';
+        } else if (error.code === 'auth/wrong-password') {
+            message = 'Incorrect password.';
+        } else if (error.code === 'auth/invalid-email') {
+            message = 'Invalid email address.';
+        }
+        
+        this.showToast('❌ ' + message);
+    }
+},
 
-            handleArtistSignup(e) {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                
-                const newArtist = {
-                    id: appState.artists.length + 1,
-                    name: formData.get('name'),
-                    email: formData.get('email'),
-                    password: formData.get('password'),
-                    bio: formData.get('bio'),
-                    profilePhoto: appState.tempProfilePhoto || '',
-                    joinDate: new Date().toISOString().split('T')[0],
-                    totalDonations: 0,
-                    activeDrops: 0
-                };
-                
-                appState.artists.push(newArtist);
-                appState.currentUser = newArtist;
-                appState.tempProfilePhoto = null;
-                this.showPage('home');
-                this.showToast('Welcome to ArtDrops, ' + newArtist.name + '!');
-            },
-
-            async handleDropNewArt(e) {
+  async handleDropNewArt(e) {
     e.preventDefault();
     
     if (!appState.currentUser) {
@@ -3009,95 +3277,155 @@ useCurrentLocation() {
                 }, 3000);
             },
 
-            handleContactSubmit(e) {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                const contactData = {
-                    name: formData.get('name'),
-                    email: formData.get('email'),
-                    subject: formData.get('subject'),
-                    message: formData.get('message'),
-                    timestamp: new Date().toISOString()
-                };
-                
-                console.log('Contact form submitted:', contactData);
-                this.showToast('Message sent! We\'ll respond within 24-48 hours.');
-                e.target.reset();
-                
-                setTimeout(() => {
-                    this.showPage('landing');
-                }, 2000);
-            },
+            async handleContactSubmit(e) {
+    e.preventDefault();
+    
+    try {
+        this.showLoadingOverlay('Sending message...');
+        
+        const formData = new FormData(e.target);
+        
+        const contactData = {
+            name: formData.get('name'),
+            email: formData.get('email'),
+            subject: formData.get('subject'),
+            message: formData.get('message'),
+            userId: appState.currentUser ? appState.currentUser.id : null,
+            submittedAt: serverTimestamp(),
+            status: 'new'
+        };
+        
+        // Save to Firestore
+        const docRef = await addDoc(collection(db, 'contact_messages'), contactData);
+        
+        console.log("✅ Message saved with ID:", docRef.id);
+        
+        this.hideLoadingOverlay();
+        this.showToast('✅ Message sent successfully! We\'ll be in touch soon.');
+        e.target.reset();
+        
+    } catch (error) {
+        console.error('❌ Error sending contact message:', error);
+        this.hideLoadingOverlay();
+        this.showToast('❌ Failed to send message: ' + error.message);
+    }
+},
 
-            toggleFollowArtist(artistId) {
-                if (!appState.currentUser) {
-                    alert('Please log in to follow artists');
-                    this.showPage('finder-login');
-                    return;
-                }
-                
-                const followIndex = appState.follows.findIndex(
-                    f => f.followerId === appState.currentUser.id && f.targetType === 'artist' && f.targetId === artistId
-                );
-                
-                if (followIndex >= 0) {
-                    // Unfollow
-                    appState.follows.splice(followIndex, 1);
-                    const index = appState.currentUser.followedArtists.indexOf(artistId);
-                    if (index >= 0) appState.currentUser.followedArtists.splice(index, 1);
-                    this.showToast('Unfollowed artist');
-                } else {
-                    // Follow
-                    appState.follows.push({
-                        followerId: appState.currentUser.id,
-                        targetType: 'artist',
-                        targetId: artistId,
-                        dateFollowed: new Date().toISOString().split('T')[0]
-                    });
-                    if (!appState.currentUser.followedArtists.includes(artistId)) {
-                        appState.currentUser.followedArtists.push(artistId);
-                    }
-                    this.showToast('Following artist!');
-                }
-                
-                // Refresh current page
-                this.showPage(appState.currentPage, { dropId: parseInt(window.location.hash.split('/').pop()) || null });
-            },
+            async toggleFollowArtist(artistId) {
+    if (!appState.currentUser) {
+        this.showToast('Please sign in to follow artists');
+        this.showPage('artist-login');
+        return;
+    }
+    
+    try {
+        const followId = `${appState.currentUser.id}_${artistId}`;
+        const followRef = doc(db, 'follows', followId);
+        
+        const followSnap = await getDoc(followRef);
+        
+        if (followSnap.exists()) {
+            // Unfollow
+            await deleteDoc(followRef);
+            
+            // Decrement artist's followerCount
+            const artistRef = doc(db, 'users', artistId);
+            await updateDoc(artistRef, {
+                followerCount: increment(-1)
+            });
+            
+            // Update local cache
+            const artist = appState.artists.find(a => a.id === artistId);
+            if (artist) artist.followerCount--;
+            
+            this.showToast('✅ Unfollowed');
+            console.log("✅ Artist unfollowed");
+            
+        } else {
+            // Follow
+            await setDoc(followRef, {
+                followerId: appState.currentUser.id,
+                targetType: 'artist',
+                targetId: artistId,
+                dateFollowed: serverTimestamp()
+            });
+            
+            // Increment artist's followerCount
+            const artistRef = doc(db, 'users', artistId);
+            await updateDoc(artistRef, {
+                followerCount: increment(1)
+            });
+            
+            // Update local cache
+            const artist = appState.artists.find(a => a.id === artistId);
+            if (artist) artist.followerCount++;
+            
+            this.showToast('✅ Following');
+            console.log("✅ Artist followed");
+        }
+        
+    } catch (error) {
+        console.error('❌ Error toggling follow:', error);
+        this.showToast('❌ Failed to update follow status');
+    }
+},
 
-            toggleFollowLocation(locationId) {
-                if (!appState.currentUser) {
-                    alert('Please log in to follow locations');
-                    this.showPage('finder-login');
-                    return;
-                }
-                
-                const followIndex = appState.follows.findIndex(
-                    f => f.followerId === appState.currentUser.id && f.targetType === 'location' && f.targetId === locationId
-                );
-                
-                if (followIndex >= 0) {
-                    // Unfollow
-                    appState.follows.splice(followIndex, 1);
-                    const index = appState.currentUser.followedLocations.indexOf(locationId);
-                    if (index >= 0) appState.currentUser.followedLocations.splice(index, 1);
-                    this.showToast('Unfollowed location');
-                } else {
-                    // Follow
-                    appState.follows.push({
-                        followerId: appState.currentUser.id,
-                        targetType: 'location',
-                        targetId: locationId,
-                        dateFollowed: new Date().toISOString().split('T')[0]
-                    });
-                    if (!appState.currentUser.followedLocations.includes(locationId)) {
-                        appState.currentUser.followedLocations.push(locationId);
-                    }
-                    this.showToast('Following location!');
-                }
-                
-                // Refresh current page
-                this.showPage(appState.currentPage, { dropId: parseInt(window.location.hash.split('/').pop()) || null });
-            },
+            async toggleFollowLocation(locationId) {
+    if (!appState.currentUser) {
+        this.showToast('Please sign in to follow locations');
+        this.showPage('artist-login');
+        return;
+    }
+    
+    try {
+        const followId = `${appState.currentUser.id}_loc_${locationId}`;
+        const followRef = doc(db, 'follows', followId);
+        
+        const followSnap = await getDoc(followRef);
+        
+        if (followSnap.exists()) {
+            // Unfollow
+            await deleteDoc(followRef);
+            
+            // Decrement location's followerCount
+            const locationRef = doc(db, 'locations', locationId.toString());
+            await updateDoc(locationRef, {
+                followerCount: increment(-1)
+            });
+            
+            // Update local cache
+            const location = appState.locations.find(l => l.id === locationId);
+            if (location) location.followerCount--;
+            
+            this.showToast('✅ Unfollowed location');
+            
+        } else {
+            // Follow
+            await setDoc(followRef, {
+                followerId: appState.currentUser.id,
+                targetType: 'location',
+                targetId: locationId.toString(),
+                dateFollowed: serverTimestamp()
+            });
+            
+            // Increment location's followerCount
+            const locationRef = doc(db, 'locations', locationId.toString());
+            await updateDoc(locationRef, {
+                followerCount: increment(1)
+            });
+            
+            // Update local cache
+            const location = appState.locations.find(l => l.id === locationId);
+            if (location) location.followerCount++;
+            
+            this.showToast('✅ Following location');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error toggling location follow:', error);
+        this.showToast('❌ Failed to update follow status');
+    }
+},
 
             shareArt(platform, url, text) {
                 text = decodeURIComponent(text);
@@ -3150,172 +3478,122 @@ useCurrentLocation() {
                 }
             },
 
-            handleProfileUpdate(e) {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                
-                // Use temp photo if uploaded, otherwise keep existing
-                if (appState.tempProfilePhoto) {
-                    appState.currentUser.profilePhoto = appState.tempProfilePhoto;
-                    appState.tempProfilePhoto = null;
-                }
-                appState.currentUser.bio = formData.get('bio') || '';
-                appState.currentUser.city = formData.get('city') || '';
-                appState.currentUser.instagram = formData.get('instagram') || '';
-                appState.currentUser.tiktok = formData.get('tiktok') || '';
-                appState.currentUser.facebook = formData.get('facebook') || '';
-                appState.currentUser.website = formData.get('website') || '';
-                
-                this.showToast('Profile updated successfully!');
-                this.showPage('artist-dashboard');
-            },
+            async handleProfileUpdate(e) {
+    e.preventDefault();
+    
+    if (!appState.currentUser) {
+        this.showToast('Please sign in first');
+        return;
+    }
+    
+    try {
+        this.showLoadingOverlay('Updating profile...');
+        
+        const formData = new FormData(e.target);
+        
+        const updateData = {
+            name: formData.get('name') || appState.currentUser.name,
+            bio: formData.get('bio') || '',
+            city: formData.get('city') || '',
+            instagram: formData.get('instagram') || '',
+            tiktok: formData.get('tiktok') || '',
+            facebook: formData.get('facebook') || '',
+            website: formData.get('website') || ''
+        };
+        
+        // Handle profile photo upload if provided
+        const photoInput = document.getElementById('editProfilePhotoInput');
+        if (photoInput && photoInput.files.length > 0) {
+            this.showLoadingOverlay('Uploading profile photo...');
+            updateData.profilePhoto = await uploadPhotoToStorage(photoInput.files);
+        }
+        
+        // Update Firestore user document
+        const userRef = doc(db, 'users', appState.currentUser.id);
+        await updateDoc(userRef, updateData);
+        
+        console.log("✅ Profile updated in Firestore");
+        
+        // Update appState
+        appState.currentUser = {
+            ...appState.currentUser,
+            ...updateData
+        };
+        
+        this.hideLoadingOverlay();
+        this.showToast('✅ Profile updated successfully!');
+        
+        // Reload dashboard to show updated info
+        this.showPage('artist-dashboard');
+        
+    } catch (error) {
+        console.error('❌ Profile update error:', error);
+        this.hideLoadingOverlay();
+        this.showToast('❌ Failed to update profile: ' + error.message);
+    }
+},
 
-            renderFeed() {
-                // Use sample data from instructions
-                const sampleArtDrops = [
-                    {
-                        id: 1,
-                        artistId: 1,
-                        artistName: 'Sarah Martinez',
-                        artistPhoto: 'https://i.pravatar.cc/200?img=1',
-                        title: 'Morning Shell',
-                        story: 'Found this perfect scallop shell during a sunrise walk at the beach. I painted it with watercolors inspired by the dawn sky - soft pinks, oranges, and blues blending together. Left it at my favorite coffee spot for someone who needs a reminder that beauty is everywhere, even in the smallest moments.',
-                        photoUrl: 'https://images.unsplash.com/photo-1582662104865-0a8b0c8f9832?w=1200&h=1600&fit=crop',
-                        latitude: 40.7589,
-                        longitude: -73.9851,
-                        locationType: 'Coffee Shop',
-                        locationName: 'Westside Coffee, Brooklyn',
-                        materials: 'Scallop Shell, Watercolor',
-                        dateCreated: '2024-10-20',
-                        findCount: 3,
-                        distance: '0.3 miles'
-                    },
-                    {
-                        id: 2,
-                        artistId: 2,
-                        artistName: 'James River',
-                        artistPhoto: 'https://i.pravatar.cc/200?img=12',
-                        title: 'Desert Stone',
-                        story: 'This red sandstone caught my eye during a canyon hike in Sedona. I painted geometric patterns inspired by indigenous art of the Southwest. The stone still carries the warmth of the desert sun.',
-                        photoUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&h=1600&fit=crop',
-                        latitude: 34.8697,
-                        longitude: -111.7610,
-                        locationType: 'Trail',
-                        locationName: 'Red Rock Trail, Sedona',
-                        materials: 'Red Sandstone, Acrylic',
-                        dateCreated: '2024-10-18',
-                        findCount: 5,
-                        distance: '1.2 miles'
-                    },
-                    {
-                        id: 3,
-                        artistId: 1,
-                        artistName: 'Sarah Martinez',
-                        artistPhoto: 'https://i.pravatar.cc/200?img=1',
-                        title: 'Autumn Feather',
-                        story: 'A hawk feather found during my morning walk in Central Park. I painted it with the colors of fall - deep burgundy, gold, and burnt orange. Nature\'s canvas painted by nature\'s palette.',
-                        photoUrl: 'https://images.unsplash.com/photo-1560015534-cee980ba7e13?w=1200&h=1600&fit=crop',
-                        latitude: 40.7829,
-                        longitude: -73.9654,
-                        locationType: 'Park',
-                        locationName: 'Central Park, New York',
-                        materials: 'Hawk Feather, Watercolor',
-                        dateCreated: '2024-10-21',
-                        findCount: 2,
-                        distance: '0.8 miles'
-                    }
-                ];
-                
-                return `
-                    <div class="immersive-feed" id="immersiveFeed">
-                        ${sampleArtDrops.map(drop => `
-                            <div class="art-card-fullscreen" style="background-image: url('${drop.photoUrl}');" data-drop-id="${drop.id}">
-                                <!-- Top Overlay -->
-                                <div class="top-overlay">
-                                    <div class="artist-name-overlay" onclick="app.showPage('artist-profile', {artistId: ${drop.artistId}}); event.stopPropagation();" style="cursor: pointer;">
-                                        <img src="${drop.artistPhoto}" alt="${drop.artistName}" class="artist-avatar-small">
-                                        <div>
-                                            <div class="artist-name-text">${drop.artistName}</div>
-                                            <div class="location-indicator" style="display: flex; align-items: center; gap: 4px;">
-                                    <svg class="icon icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
-                                        <circle cx="12" cy="10" r="3"/>
-                                    </svg>
-                                    ${drop.locationName}
-                                </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Bottom Overlay -->
-                                <div class="bottom-overlay" onclick="app.openDetailsOverlay(${drop.id})">
-                                    <h2 class="art-title-overlay">${drop.title}</h2>
-                                    <p class="art-story-preview">${drop.story.substring(0, 80)}...</p>
-                                    <p class="tap-hint">Tap for full story</p>
-                                </div>
-                                
-                                <!-- Quick Actions -->
-                                <div class="quick-actions">
-                                    <button class="action-btn" onclick="app.toggleFollowArtist(${drop.artistId}); event.stopPropagation();" title="Follow">
-                                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
-                                        </svg>
-                                    </button>
-                                    <button class="action-btn" onclick="app.openShareOverlay(${drop.id}); event.stopPropagation();" title="Share">
-                                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <circle cx="18" cy="5" r="3"/>
-                                            <circle cx="6" cy="12" r="3"/>
-                                            <circle cx="18" cy="19" r="3"/>
-                                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-                                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-                                        </svg>
-                                    </button>
-                                    <button class="action-btn" onclick="app.openLocationOverlay(${drop.id}); event.stopPropagation();" title="Location">
-                                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
-                                            <circle cx="12" cy="10" r="3"/>
-                                        </svg>
-                                    </button>
-                                    <button class="action-btn" onclick="app.openDetailsOverlay(${drop.id}); event.stopPropagation();" title="Info">
-                                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <circle cx="12" cy="12" r="10"/>
-                                            <line x1="12" y1="16" x2="12" y2="12"/>
-                                            <line x1="12" y1="8" x2="12.01" y2="8"/>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        `).join('')}
+            async renderFeed() {
+    const feedContainer = document.getElementById('feedContent');
+    
+    if (feedContainer) {
+        feedContainer.innerHTML = '<div style="text-align: center; padding: 40px;"><div class="spinner"></div><p>Loading art drops...</p></div>';
+    }
+    
+    try {
+        // Load from Firebase
+        const firebaseDrops = await getFirebaseArtDrops({ limit: 20 });
+        const artDrops = firebaseDrops.length > 0 ? firebaseDrops : appState.artDrops;
+        
+        console.log("Displaying", artDrops.length, "drops in feed");
+        
+        if (artDrops.length === 0) {
+            return `
+                <div class="container">
+                    <h2 style="padding: 20px 0;">Discover Art</h2>
+                    <div class="empty-state" style="text-align: center; padding: 60px 20px;">
+                        <p>No art drops yet. Check back soon!</p>
                     </div>
-                    
-                    <!-- Details Overlay -->
-                    <div class="overlay-modal" id="detailsOverlay" onclick="app.closeOverlay('detailsOverlay')">
-                        <div class="overlay-content" onclick="event.stopPropagation()" id="detailsOverlayContent">
-                            <!-- Content populated dynamically -->
-                        </div>
+                </div>
+            `;
+        }
+        
+        let feedHTML = `
+            <div class="container">
+                <h2 style="padding: 20px 0;">Discover Art</h2>
+                <div class="feed-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+        `;
+        
+        artDrops.forEach(drop => {
+            const status = drop.status === 'active' ? '✓ Active' : '🎯 Found';
+            const badgeClass = drop.status === 'active' ? 'active' : 'found';
+            
+            feedHTML += `
+                <div class="feed-card card" onclick="app.showPage('art-story', {dropId: '${drop.id}'})">
+                    <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; height: 250px; object-fit: cover; border-radius: 8px 8px 0 0;" />
+                    <div class="card-content" style="padding: 16px; cursor: pointer;">
+                        <span class="badge badge-${badgeClass}">${status}</span>
+                        <h3 style="margin: 8px 0;">${drop.title}</h3>
+                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">${drop.story.substring(0, 100)}...</p>
+                        <p style="color: #999; font-size: 0.875rem;">by ${drop.artistName}</p>
+                        <p style="color: #999; font-size: 0.875rem;">📍 ${drop.locationName}</p>
                     </div>
-                    
-                    <!-- Share Overlay -->
-                    <div class="overlay-modal" id="shareOverlay" onclick="app.closeOverlay('shareOverlay')">
-                        <div class="overlay-content" onclick="event.stopPropagation()">
-                            <div class="overlay-header">
-                                <h3 style="margin: 0;">Share This Art</h3>
-                                <button class="close-overlay" onclick="app.closeOverlay('shareOverlay')">✕</button>
-                            </div>
-                            <div class="share-grid" id="shareGrid">
-                                <!-- Populated dynamically -->
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Location Overlay -->
-                    <div class="overlay-modal" id="locationOverlay" onclick="app.closeOverlay('locationOverlay')">
-                        <div class="overlay-content" onclick="event.stopPropagation()" id="locationOverlayContent">
-                            <!-- Content populated dynamically -->
-                        </div>
-                    </div>
-                `;
-            },
+                </div>
+            `;
+        });
+        
+        feedHTML += `
+                </div>
+            </div>
+        `;
+        
+        return feedHTML;
+        
+    } catch (error) {
+        console.error("Error loading feed:", error);
+        return '<div class="container"><p>Error loading feed. Please try again.</p></div>';
+    }
+},
             
             openDetailsOverlay(dropId) {
                 const sampleArtDrops = [
@@ -3624,71 +3902,53 @@ useCurrentLocation() {
                 document.getElementById(overlayId).classList.remove('active');
             },
 
-            renderPopularLocations() {
-                // Sort locations by followers
-                const sortedLocations = [...appState.locations].sort((a, b) => b.followerCount - a.followerCount);
-                
-                return `
-                    <div class="container">
-                        <h1 style="text-align: center; margin-bottom: 0.5rem; font-size: clamp(1.75rem, 5vw, 2.5rem);">Popular Locations</h1>
-                        <p style="text-align: center; color: var(--text-gray); margin-bottom: 2rem; font-size: clamp(0.9rem, 2.5vw, 1.1rem);">Discover trending spots where art comes alive</p>
-                        
-                        <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin-bottom: 2rem;">
-                            <button class="btn btn-primary" onclick="app.sortLocations('followers')" style="min-height: 40px; padding: 0.5rem 1rem; font-size: 0.9rem;">Most Followers</button>
-                            <button class="btn btn-secondary" onclick="app.sortLocations('drops')" style="min-height: 40px; padding: 0.5rem 1rem; font-size: 0.9rem;">Most Art</button>
-                            <button class="btn btn-secondary" onclick="app.sortLocations('trending')" style="min-height: 40px; padding: 0.5rem 1rem; font-size: 0.9rem;">Trending</button>
+            async renderPopularLocations() {
+    try {
+        // Load from Firebase
+        const firebaseLocations = await getFirebaseLocations();
+        const locations = firebaseLocations.length > 0 ? firebaseLocations : appState.locations;
+        
+        console.log("Displaying", locations.length, "locations");
+        
+        let html = `
+            <div class="container">
+                <h1>Popular Locations</h1>
+                <p style="color: var(--text-gray); margin-bottom: 2rem;">Discover hotspots for art drops</p>
+                <div class="locations-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+        `;
+        
+        locations.forEach(location => {
+            const followers = location.followerCount || 0;
+            const drops = location.activeDropCount || 0;
+            
+            html += `
+                <div class="card" onclick="app.showPage('location-detail', {locationId: '${location.id}'})">
+                    <img src="${location.locationPhoto}" alt="${location.name}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0; cursor: pointer;" />
+                    <div class="card-content" style="padding: 16px;">
+                        <h3 style="margin: 0 0 8px 0;">${location.name}</h3>
+                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">${location.city}, ${location.state}</p>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.875rem; color: #999;">
+                            <span>👥 ${followers} followers</span>
+                            <span>🎨 ${drops} drops</span>
                         </div>
-                        
-                        <div class="grid grid-3" id="locationsGrid">
-                            ${sortedLocations.map(location => `
-                                <div class="card card-interactive" onclick="app.showPage('location-detail', {locationId: ${location.id}})">
-                                    ${location.featuredPhotos && location.featuredPhotos.length > 0 ? `
-                                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; height: 200px; margin: -20px -20px 20px -20px; border-radius: 8px 8px 0 0; overflow: hidden;">
-                                            ${location.featuredPhotos.slice(0, 4).map(photo => `
-                                                <img src="${photo}" alt="Art at ${location.name}" style="width: 100%; height: 100%; object-fit: cover;">
-                                            `).join('')}
-                                            ${location.featuredPhotos.length < 4 ? '<div style="background: var(--light-gray);"></div>'.repeat(4 - location.featuredPhotos.length) : ''}
-                                        </div>
-                                    ` : `
-                                        <div style="height: 200px; background: var(--light-gray); display: flex; align-items: center; justify-content: center; font-size: 3rem; margin: -20px -20px 20px -20px; border-radius: 8px 8px 0 0;">📍</div>
-                                    `}
-                                    <div style="padding: 0;">
-                                        <h3 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 0.5rem;">${location.name}</h3>
-                                        <p style="color: var(--text-gray); font-size: 0.85rem; margin-bottom: 1rem;">${location.city}, ${location.state}</p>
-                                        <div style="display: flex; gap: 1rem; margin-bottom: 0.75rem; font-size: 0.8rem; color: var(--text-gray); flex-wrap: wrap;">
-                                            <span style="display: flex; align-items: center; gap: 4px;">
-                                                <svg class="icon icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                                                    <circle cx="9" cy="7" r="4"/>
-                                                    <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
-                                                </svg>
-                                                ${location.followerCount}
-                                            </span>
-                                            <span style="display: flex; align-items: center; gap: 4px;">
-                                                <svg class="icon icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>
-                                                </svg>
-                                                ${location.activeDropCount} drops
-                                            </span>
-                                            <span style="display: flex; align-items: center; gap: 4px;">
-                                                <svg class="icon icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <circle cx="12" cy="10" r="3"/>
-                                                    <path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/>
-                                                </svg>
-                                                ${location.distance}
-                                            </span>
-                                        </div>
-                                        <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-                                            <button class="btn btn-primary" onclick="app.toggleFollowLocation(${location.id}); event.stopPropagation();" style="flex: 1; min-height: 40px; font-size: 0.85rem; padding: 0.5rem;">Follow</button>
-                                            <button class="btn btn-secondary" onclick="window.open('https://maps.google.com/?q=${location.latitude},${location.longitude}', '_blank'); event.stopPropagation();" style="flex: 1; min-height: 40px; font-size: 0.85rem; padding: 0.5rem;">Map</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); app.toggleFollowLocation('${location.id}')" style="margin-top: 12px; width: 100%;">Follow</button>
                     </div>
-                `;
-            },
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+        
+        return html;
+        
+    } catch (error) {
+        console.error("Error loading locations:", error);
+        return '<div class="container"><p>Error loading locations. Please try again.</p></div>';
+    }
+},
 
             renderLocationDetail(locationId) {
                 const location = appState.locations.find(l => l.id === locationId);
