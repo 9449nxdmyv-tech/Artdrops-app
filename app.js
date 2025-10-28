@@ -2334,21 +2334,29 @@ window.useFirebase = true; // Set to true when Firebase is configured
                 this.showToast('Welcome, ' + appleUser.name + '! Signed in with Apple.');
             },
 
-            signInWithGoogle() {
-                // Simulated Google Sign In (in production: use google.accounts.id.initialize())
-                const googleUser = {
-                    id: 'google_' + Date.now(),
-                    name: 'Google User',
-                    email: 'user@gmail.com',
-                    authProvider: 'google',
-                    userType: 'finder',
-                    profilePhoto: 'https://i.pravatar.cc/200?img=51',
-                    foundArt: [],
-                    followedArtists: [],
-                    followedLocations: [],
-                    totalFinds: 0,
-                    joinDate: new Date().toISOString().split('T')[0]
-                };
+            async function signInWithGoogle() {
+                try {
+                    const provider = new GoogleAuthProvider();
+                    const result = await signInWithPopup(auth, provider);
+                    
+                    console.log("Sign in successful:", result.user.email);
+                    
+                    // Create/update user document
+                    await ensureUserDocument(result.user);
+                    
+                    // Show success message
+                    alert('Welcome, ' + result.user.displayName + '!');
+                    
+                    // Redirect to home or dashboard
+                    app.showPage('home');
+                    
+                } catch (error) {
+                    console.error('Google sign in error:', error);
+                    console.error('Error code:', error.code);
+                    console.error('Error message:', error.message);
+                    alert('Sign in failed: ' + error.message);
+                }
+            };
                 
                 appState.finders.push(googleUser);
                 appState.currentUser = googleUser;
