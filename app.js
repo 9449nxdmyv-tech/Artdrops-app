@@ -1320,7 +1320,7 @@ generateQRCode(dropId) {
                 `;
             },
 
-            async renderMyDrops() {
+renderMyDrops() {
     if (!appState.currentUser) {
         this.showPage('artist-login');
         return '';
@@ -3578,7 +3578,7 @@ useCurrentLocation() {
     }
 },
 
-            async renderFeed() {
+ renderFeed() {
     const feedContainer = document.getElementById('feedContent');
     
     if (feedContainer) {
@@ -3947,7 +3947,7 @@ useCurrentLocation() {
                 document.getElementById(overlayId).classList.remove('active');
             },
 
-            async renderPopularLocations() {
+   renderPopularLocations() {
     try {
         // Load from Firebase
         const firebaseLocations = await getFirebaseLocations();
