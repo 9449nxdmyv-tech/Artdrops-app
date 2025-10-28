@@ -522,7 +522,7 @@ const appState = {
     locationTypes: ['Coffee Shop', 'Bookstore', 'Park', 'Trail', 'Plaza', 'Mall', 'Library', 'Other'],
     donationPresets: [1, 3, 5, 10],
     platformCommission: 0.05
-};
+},
 
 
         // ============================================
