@@ -2312,86 +2312,61 @@ window.useFirebase = true; // Set to true when Firebase is configured
                 this.showToast('Welcome to ArtDrops, ' + newFinder.name + '!');
             },
 
-            signInWithApple() {
-                // Simulated Apple Sign In (in production: use AppleID.auth.signIn())
-                const appleUser = {
-                    id: 'apple_' + Date.now(),
-                    name: 'Apple User',
-                    email: 'user@icloud.com',
-                    authProvider: 'apple',
-                    userType: 'finder',
-                    profilePhoto: 'https://i.pravatar.cc/200?img=50',
-                    foundArt: [],
-                    followedArtists: [],
-                    followedLocations: [],
-                    totalFinds: 0,
-                    joinDate: new Date().toISOString().split('T')[0]
+            // ===== AUTHENTICATION =====
+    
+    signInWithGoogle() {
+        // Real Firebase Google Sign-In (code from above)
+        const provider = new GoogleAuthProvider();
+        
+        signInWithPopup(auth, provider)
+            .then(async (result) => {
+                console.log("Sign in successful:", result.user.email);
+                await ensureUserDocument(result.user);
+                
+                appState.currentUser = {
+                    id: result.user.uid,
+                    name: result.user.displayName,
+                    email: result.user.email,
+                    profilePhoto: result.user.photoURL,
+                    userType: 'artist',
+                    authProvider: 'google'
                 };
                 
-                appState.finders.push(appleUser);
-                appState.currentUser = appleUser;
-                this.showPage('feed');
-                this.showToast('Welcome, ' + appleUser.name + '! Signed in with Apple.');
-            },
-
-            async function signInWithGoogle() {
-                try {
-                    const provider = new GoogleAuthProvider();
-                    const result = await signInWithPopup(auth, provider);
-                    
-                    console.log("Sign in successful:", result.user.email);
-                    
-                    // Create/update user document
-                    await ensureUserDocument(result.user);
-                    
-                    // Show success message
-                    alert('Welcome, ' + result.user.displayName + '!');
-                    
-                    // Redirect to home or dashboard
-                    app.showPage('home');
-                    
-                } catch (error) {
-                    console.error('Google sign in error:', error);
-                    console.error('Error code:', error.code);
-                    console.error('Error message:', error.message);
-                    alert('Sign in failed: ' + error.message);
-                }
-            };
+                this.showToast('Welcome, ' + result.user.displayName + '!');
+                this.showPage('home');
+            })
+            .catch((error) => {
+                console.error('Google sign in error:', error);
+                this.showToast('Sign in failed: ' + error.message);
+            });
+    },
+    
+    signInWithApple() {
+        // Real Firebase Apple Sign-In (code from above)
+        const provider = new OAuthProvider('apple.com');
+        
+        signInWithPopup(auth, provider)
+            .then(async (result) => {
+                console.log("Apple sign in successful");
+                await ensureUserDocument(result.user);
                 
-                appState.finders.push(googleUser);
-                appState.currentUser = googleUser;
-                this.showPage('feed');
-                this.showToast('Welcome, ' + googleUser.name + '! Signed in with Google.');
-            },
-
-            handleProfilePhotoPreview(event, previewId) {
-                const file = event.target.files[0];
-                if (!file) return;
-                
-                // Validate file size (max 5MB)
-                if (file.size > 5 * 1024 * 1024) {
-                    alert('File too large. Maximum size is 5MB.');
-                    return;
-                }
-                
-                // Validate file type
-                if (!file.type.match('image/(jpeg|png|gif)')) {
-                    alert('Please upload a JPG, PNG, or GIF image.');
-                    return;
-                }
-                
-                // Preview image
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const preview = document.getElementById(previewId);
-                    if (preview) {
-                        preview.src = e.target.result;
-                        // Store temporarily for signup
-                        appState.tempProfilePhoto = e.target.result;
-                    }
+                appState.currentUser = {
+                    id: result.user.uid,
+                    name: result.user.displayName || 'Apple User',
+                    email: result.user.email,
+                    profilePhoto: result.user.photoURL || 'https://i.pravatar.cc/200?img=50',
+                    userType: 'artist',
+                    authProvider: 'apple'
                 };
-                reader.readAsDataURL(file);
-            },
+                
+                this.showToast('Welcome!');
+                this.showPage('home');
+            })
+            .catch((error) => {
+                console.error('Apple sign in error:', error);
+                this.showToast('Sign in failed: ' + error.message);
+            });
+    },
 
             handleArtistLogin(e) {
                 e.preventDefault();
