@@ -49,7 +49,7 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 // Keep your app working with existing sample data while Firebase is optional
-window.useFirebase = false; // Set to true when Firebase is configured
+window.useFirebase = true; // Set to true when Firebase is configured
 
 
  // ============================================
