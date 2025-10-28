@@ -2488,66 +2488,67 @@ const appState = {
             },
 
             signInWithGoogle() {
-                try {
-        const provider = new GoogleAuthProvider();
-        const result = await signInWithPopup(auth, provider);
-        console.log("✅ Google sign in successful:", result.user.email);
-        
-        await ensureUserDocument(result.user);
-        
-        // Load full user profile from Firestore
-        const userRef = doc(db, 'users', result.user.uid);
-        const userSnap = await getDoc(userRef);
-        
-        if (userSnap.exists()) {
-            const userData = userSnap.data();
+               const provider = new GoogleAuthProvider();
+    
+    signInWithPopup(auth, provider)
+        .then(async (result) => {
+            console.log("✅ Google sign in successful:", result.user.email);
             
-            // Set currentUser with ALL fields from Firestore
-            appState.currentUser = {
-                id: result.user.uid,
-                name: userData.name || result.user.displayName || 'Artist',
-                email: result.user.email,
-                profilePhoto: userData.profilePhoto || result.user.photoURL || 'https://i.pravatar.cc/200?img=1',
-                userType: userData.userType || 'artist',
-                bio: userData.bio || '',
-                city: userData.city || '',
-                instagram: userData.instagram || '',
-                tiktok: userData.tiktok || '',
-                facebook: userData.facebook || '',
-                website: userData.website || '',
-                followerCount: userData.followerCount || 0,
-                totalDonations: userData.totalDonations || 0,
-                activeDrops: userData.activeDrops || 0,
-                joinDate: userData.joinDate || new Date().toISOString().split('T')[0]
-            };
-        } else {
-            // Fallback if document doesn't exist yet
-            appState.currentUser = {
-                id: result.user.uid,
-                name: result.user.displayName || 'Artist',
-                email: result.user.email,
-                profilePhoto: result.user.photoURL || 'https://i.pravatar.cc/200?img=1',
-                userType: 'artist',
-                bio: '',
-                city: '',
-                instagram: '',
-                tiktok: '',
-                facebook: '',
-                website: '',
-                followerCount: 0,
-                totalDonations: 0,
-                activeDrops: 0,
-                joinDate: new Date().toISOString().split('T')[0]
-            };
-        }
-        
-        this.showToast('Welcome, ' + appState.currentUser.name + '!');
-        this.showPage('home');
-        
-    } catch (error) {
-        console.error('❌ Google sign in error:', error);
-        this.showToast('Sign in failed: ' + error.message);
-    }
+            await ensureUserDocument(result.user);
+            
+            // Load full user profile from Firestore
+            const userRef = doc(db, 'users', result.user.uid);
+            const userSnap = await getDoc(userRef);
+            
+            if (userSnap.exists()) {
+                const userData = userSnap.data();
+                
+                // Set currentUser with ALL fields
+                appState.currentUser = {
+                    id: result.user.uid,
+                    name: userData.name || result.user.displayName || 'Artist',
+                    email: result.user.email,
+                    profilePhoto: userData.profilePhoto || result.user.photoURL || 'https://i.pravatar.cc/200?img=1',
+                    userType: userData.userType || 'artist',
+                    bio: userData.bio || '',
+                    city: userData.city || '',
+                    instagram: userData.instagram || '',
+                    tiktok: userData.tiktok || '',
+                    facebook: userData.facebook || '',
+                    website: userData.website || '',
+                    followerCount: userData.followerCount || 0,
+                    totalDonations: userData.totalDonations || 0,
+                    activeDrops: userData.activeDrops || 0,
+                    joinDate: userData.joinDate || new Date().toISOString().split('T')[0]
+                };
+            } else {
+                // Fallback with all required fields
+                appState.currentUser = {
+                    id: result.user.uid,
+                    name: result.user.displayName || 'Artist',
+                    email: result.user.email,
+                    profilePhoto: result.user.photoURL || 'https://i.pravatar.cc/200?img=1',
+                    userType: 'artist',
+                    bio: '',
+                    city: '',
+                    instagram: '',
+                    tiktok: '',
+                    facebook: '',
+                    website: '',
+                    followerCount: 0,
+                    totalDonations: 0,
+                    activeDrops: 0,
+                    joinDate: new Date().toISOString().split('T')[0]
+                };
+            }
+            
+            this.showToast('Welcome, ' + appState.currentUser.name + '!');
+            this.showPage('home');
+        })
+        .catch((error) => {
+            console.error('❌ Google sign in error:', error);
+            this.showToast('Sign in failed: ' + error.message);
+        });
             },
 
             handleProfilePhotoPreview(event, previewId) {
