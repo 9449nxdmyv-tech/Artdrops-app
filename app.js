@@ -1,56 +1,3 @@
-// ============================================
-// FIREBASE IMPORTS & CONFIGURATION
-// ============================================
-
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { 
-    getAuth, 
-    signInWithPopup, 
-    GoogleAuthProvider, 
-    OAuthProvider,
-    signOut as firebaseSignOut,
-    onAuthStateChanged
-} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { 
-    getFirestore, 
-    collection, 
-    addDoc, 
-    getDocs, 
-    doc,
-    setDoc,
-    updateDoc,
-    query, 
-    where, 
-    orderBy, 
-    limit,
-    serverTimestamp
-} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import { 
-    getStorage, 
-    ref, 
-    uploadBytes, 
-    getDownloadURL 
-} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
-
-// Firebase Config - REPLACE WITH YOURS
-const firebaseConfig = {
-  apiKey: "AIzaSyD2dBIb4rNczPQAxsyh-UkKSJrp0gLrnKA",
-  authDomain: "art-drops-production.firebaseapp.com",
-  projectId: "art-drops-production",
-  storageBucket: "art-drops-production.firebasestorage.app",
-  messagingSenderId: "738166123505",
-  appId: "1:738166123505:web:2e938dc32c436bcd693250",
-  measurementId: "G-FKDW0NSDQY"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
-
-// Keep your app working with existing sample data while Firebase is optional
-window.useFirebase = true; // Set to true when Firebase is configured
-
 
  // ============================================
         // DATA STRUCTURES (In-Memory Storage)
@@ -2334,29 +2281,21 @@ window.useFirebase = true; // Set to true when Firebase is configured
                 this.showToast('Welcome, ' + appleUser.name + '! Signed in with Apple.');
             },
 
-            async function signInWithGoogle() {
-                try {
-                    const provider = new GoogleAuthProvider();
-                    const result = await signInWithPopup(auth, provider);
-                    
-                    console.log("Sign in successful:", result.user.email);
-                    
-                    // Create/update user document
-                    await ensureUserDocument(result.user);
-                    
-                    // Show success message
-                    alert('Welcome, ' + result.user.displayName + '!');
-                    
-                    // Redirect to home or dashboard
-                    app.showPage('home');
-                    
-                } catch (error) {
-                    console.error('Google sign in error:', error);
-                    console.error('Error code:', error.code);
-                    console.error('Error message:', error.message);
-                    alert('Sign in failed: ' + error.message);
-                }
-            };
+            signInWithGoogle() {
+                // Simulated Google Sign In (in production: use google.accounts.id.initialize())
+                const googleUser = {
+                    id: 'google_' + Date.now(),
+                    name: 'Google User',
+                    email: 'user@gmail.com',
+                    authProvider: 'google',
+                    userType: 'finder',
+                    profilePhoto: 'https://i.pravatar.cc/200?img=51',
+                    foundArt: [],
+                    followedArtists: [],
+                    followedLocations: [],
+                    totalFinds: 0,
+                    joinDate: new Date().toISOString().split('T')[0]
+                };
                 
                 appState.finders.push(googleUser);
                 appState.currentUser = googleUser;
