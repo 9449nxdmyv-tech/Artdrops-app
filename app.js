@@ -3048,10 +3048,8 @@ async handleArtistSignup(e) {
         this.showToast('✅ Art drop created successfully!');
         e.target.reset();
         
-        // ⬇️ JUST NAVIGATE TO QR PAGE ⬇️
-        // Don't generate QR code here!
+        // Show QR tag generator (showPage will handle QR generation)
         this.showPage('qr-tag-generator', { dropId: dropId });
-        // ⬆️ That's it! ⬆️
         
     } catch (error) {
         console.error('❌ Error creating art drop:', error);
