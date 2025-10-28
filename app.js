@@ -1,3 +1,55 @@
+// ============================================
+// FIREBASE IMPORTS & CONFIGURATION
+// ============================================
+
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { 
+    getAuth, 
+    signInWithPopup, 
+    GoogleAuthProvider, 
+    OAuthProvider,
+    signOut as firebaseSignOut,
+    onAuthStateChanged
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { 
+    getFirestore, 
+    collection, 
+    addDoc, 
+    getDocs, 
+    doc,
+    setDoc,
+    updateDoc,
+    query, 
+    where, 
+    orderBy, 
+    limit,
+    serverTimestamp
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { 
+    getStorage, 
+    ref, 
+    uploadBytes, 
+    getDownloadURL 
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
+
+// Firebase Config - REPLACE WITH YOURS
+const firebaseConfig = {
+  apiKey: "AIzaSyAGr8onKzv1x4BdqmsqBQA6lvuHkd3bwyw",
+  authDomain: "artdrops-production.firebaseapp.com",
+  projectId: "artdrops-production",
+  storageBucket: "artdrops-production.firebasestorage.app",
+  messagingSenderId: "1010594249731",
+  appId: "1:1010594249731:web:30517a56f9dde3c39e6236",
+  measurementId: "G-9PG6SE7Z75"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+// Keep your app working with existing sample data while Firebase is optional
+window.useFirebase = false; // Set to true when Firebase is configured
 
 
  // ============================================
