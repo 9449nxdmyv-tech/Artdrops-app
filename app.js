@@ -1360,57 +1360,63 @@ renderMyDrops() {
         return ''
     }
     
-    // Use local cache instead of async Firebase calls
-    const myDrops = appState.artDrops.filter(d => d.artistId === appState.currentUser.id);
-    
-    console.log("User has", myDrops.length, "drops");
-    
-    let html = `
-        <div class="container">
-            <h1>My Drops</h1>
-            <p style="color: var(--text-gray); margin-bottom: 2rem;">Your art in the wild</p>
-    `;
-    
-    if (myDrops.length === 0) {
-        html += `
-            <div class="empty-state" style="text-align: center; padding: 60px 20px;">
-                <svg class="icon" style="width: 80px; height: 80px; margin-bottom: 20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="8" x2="12" y2="12"/>
-                    <line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-                <h3>No art drops yet</h3>
-                <p style="margin: 20px 0;">Be the first to drop art and spread joy!</p>
-                <button class="btn btn-primary" onclick="app.showPage('drop-new-art')">Drop Your First Piece</button>
-            </div>
-        `;
-    } else {
-        html += '<div class="drops-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">';
+    try {
+        // Use local cache instead of async Firebase calls
+        const myDrops = appState.artDrops.filter(d => d.artistId === appState.currentUser.id);
         
-        myDrops.forEach(drop => {
-            const status = drop.status === 'active' ? '✓ Active' : '🎯 Found';
-            const badgeClass = drop.status === 'active' ? 'active' : 'found';
-            const foundCount = drop.foundCount || 0;
-            
+        console.log("User has", myDrops.length, "drops");
+        
+        let html = `
+            <div class="container">
+                <h1>My Drops</h1>
+                <p style="color: var(--text-gray); margin-bottom: 2rem;">Your art in the wild</p>
+        `;
+        
+        if (myDrops.length === 0) {
             html += `
-                <div class="card" onclick="app.showPage('art-story', {dropId: ${drop.id}})">
-                    <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0; cursor: pointer;" />
-                    <div class="card-content" style="padding: 16px;">
-                        <span class="badge badge-${badgeClass}">${status}</span>
-                        <h3 style="margin: 8px 0;">${drop.title}</h3>
-                        <p style="color: #666; font-size: 0.9rem;">📍 ${drop.locationName}</p>
-                        <p style="color: #999; font-size: 0.875rem;">Found ${foundCount} time${foundCount !== 1 ? 's' : ''}</p>
-                        <p style="color: #999; font-size: 0.875rem;">$${(drop.totalDonations || 0).toFixed(2)} donated</p>
-                    </div>
+                <div class="empty-state" style="text-align: center; padding: 60px 20px;">
+                    <svg class="icon" style="width: 80px; height: 80px; margin-bottom: 20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <h3>No art drops yet</h3>
+                    <p style="margin: 20px 0;">Be the first to drop art and spread joy!</p>
+                    <button class="btn btn-primary" onclick="app.showPage('drop-new-art')">Drop Your First Piece</button>
                 </div>
             `;
-        });
+        } else {
+            html += '<div class="drops-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">';
+            
+            myDrops.forEach(drop => {
+                const status = drop.status === 'active' ? '✓ Active' : '🎯 Found';
+                const badgeClass = drop.status === 'active' ? 'active' : 'found';
+                const foundCount = drop.foundCount || 0;
+                
+                html += `
+                    <div class="card" onclick="app.showPage('art-story', {dropId: ${drop.id}})">
+                        <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0; cursor: pointer;" />
+                        <div class="card-content" style="padding: 16px;">
+                            <span class="badge badge-${badgeClass}">${status}</span>
+                            <h3 style="margin: 8px 0;">${drop.title}</h3>
+                            <p style="color: #666; font-size: 0.9rem;">📍 ${drop.locationName}</p>
+                            <p style="color: #999; font-size: 0.875rem;">Found ${foundCount} time${foundCount !== 1 ? 's' : ''}</p>
+                            <p style="color: #999; font-size: 0.875rem;">$${(drop.totalDonations || 0).toFixed(2)} donated</p>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+        }
         
         html += '</div>';
+        return html;
+        
+    } catch (error) {
+        console.error("Error rendering my drops:", error);
+        return `<div class="container"><p>Error loading your drops. Please try again.</p></div>`;
     }
-    
-    html += '</div>';
-    return html;
 },
 
 renderQRTagGenerator(dropId) {
