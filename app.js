@@ -4876,6 +4876,7 @@ app.handleDropNewArtWithFirebase = async function(e) {
             locationName: document.getElementById('dropLocationName')?.value,
             materials: document.getElementById('dropMaterials')?.value
         };
+
         
         // Create in Firebase
         await createArtDropInFirebase(formData);
