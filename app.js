@@ -745,9 +745,9 @@ const app = {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
 
-            // Update coordinate inputs
-            const latInput = document.querySelector('[name="latitude"]');
-            const lonInput = document.querySelector('[name="longitude"]');
+            // Update coordinate inputs - use getElementById
+            const latInput = document.getElementById('latitude');  // ✅ CHANGED
+            const lonInput = document.getElementById('longitude');  // ✅ CHANGED
             
             if (latInput) latInput.value = lat.toFixed(6);
             if (lonInput) lonInput.value = lng.toFixed(6);
@@ -763,7 +763,7 @@ const app = {
                 document.getElementById('geocodedCountry').value = locationData.country;
                 
                 // If no location name provided, auto-fill with city, state, zip
-                const locationNameInput = document.querySelector('[name="locationName"]');
+                const locationNameInput = document.getElementById('locationName');  // ✅ CHANGED
                 if (locationNameInput && !locationNameInput.value) {
                     const autoName = `${locationData.city}, ${locationData.state} ${locationData.zipCode}`;
                     locationNameInput.value = autoName;
