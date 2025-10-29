@@ -19,7 +19,7 @@ import {
     serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from './firebase-config.js';
-import { state } from './state-manager.js';
+import { state } from '../modules/state-manager.js';
 
 export const dropsService = {
     /**
