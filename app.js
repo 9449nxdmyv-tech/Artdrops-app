@@ -863,28 +863,34 @@ const appState = {
                     break;
                     
                 case 'found-confirmation':
-                    if (!data || !data.dropId) {
-                        this.showPage('browse-map');
-                        return;
-                    }
-                    appContainer.innerHTML = this.renderFoundConfirmation(data.dropId);
-                    break;
+                if (!data || !data.dropId) {
+                    this.showPage('browse-map');
+                    return;
+                }
+                // Load art drops to ensure latest data
+                await loadArtDropsFromFirebase();
+                appContainer.innerHTML = this.renderFoundConfirmation(data.dropId);
+                break;
                     
                 case 'donation-flow':
-                    if (!data || !data.dropId) {
-                        this.showPage('browse-map');
-                        return;
-                    }
-                    appContainer.innerHTML = this.renderDonationFlow(data.dropId);
-                    break;
+                if (!data || !data.dropId) {
+                    this.showPage('browse-map');
+                    return;
+                }
+                // Load art drops to ensure latest donation info
+                await loadArtDropsFromFirebase();
+                appContainer.innerHTML = this.renderDonationFlow(data.dropId);
+                break;
                     
                 case 'thank-you':
-                    if (!data || !data.dropId) {
-                        this.showPage('browse-map');
-                        return;
-                    }
-                    appContainer.innerHTML = this.renderThankYou(data.dropId, data.amount);
-                    break;
+                if (!data || !data.dropId) {
+                    this.showPage('browse-map');
+                    return;
+                }
+                // Load art drops to show updated donation totals
+                await loadArtDropsFromFirebase();
+                appContainer.innerHTML = this.renderThankYou(data.dropId, data.amount);
+                break;
                     
                 case 'how-it-works':
                     appContainer.innerHTML = this.renderHowItWorks();
@@ -907,15 +913,19 @@ const appState = {
                     break;
                     
                 case 'artist-profile':
-                    if (!data || !data.artistId) {
-                        console.warn("No artistId provided");
-                        this.showPage('home');
-                        return;
-                    }
-                    await loadArtDropsFromFirebase();
-                    appContainer.innerHTML = this.renderArtistProfile(data.artistId);
-                    setTimeout(() => this.initArtistMapPreview(data.artistId), 300);
-                    break;
+                if (!data || !data.artistId) {
+                    console.warn("No artistId provided");
+                    this.showPage('home');
+                    return;
+                }
+                // Load both art drops AND artists from Firebase
+                await Promise.all([
+                    loadArtDropsFromFirebase(),
+                    loadArtistsFromFirebase()
+                ]);
+                appContainer.innerHTML = this.renderArtistProfile(data.artistId);
+                setTimeout(() => this.initArtistMapPreview(data.artistId), 300);
+                break;
                     
                 case 'finder-profile':
                     if (!data || !data.finderId) {
@@ -1936,8 +1946,6 @@ renderQRTagGenerator(dropId) {
                     </div>
                     `;
                 })()}
-
-
             <!-- Finder Messages -->
             ${drop.findEvents && drop.findEvents.length > 0 ? `
             <div style="margin-top: 3rem;">
