@@ -2,11 +2,11 @@
 // PAGE RENDERERS - ARTIST PAGES
 // ============================================
 
-import { state } from './state-manager.js';
-import { dropsService } from './services/drops-service.js';
-import { storageService } from './services/storage-service.js';
-import { uiModule } from './ui-module.js';
-import { utils } from './utils.js';
+import { state } from '../services/state-manager.js';
+import { dropsService } from '../services/drops-service.js';
+import { storageService } from '../services/storage-service.js';
+import { uiModule } from '../modules/ui-module.js';
+import { utils } from '../modules/utils.js';
 
 export const artistPages = {
     /**
