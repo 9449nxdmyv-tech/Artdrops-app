@@ -83,7 +83,7 @@ async function ensureUserDocument(user) {
                 userId: user.uid,
                 id: user.uid,
                 name: user.displayName || 'Artist',
-                renderArtistSignup(): user.email,
+                email: user.email,
                 profilePhoto: user.photoURL || '',
                 userType: 'artist',
                 bio: '',
@@ -1499,7 +1499,7 @@ renderFoundConfirmation(dropId) {
                 
                 <div class="form-group">
                     <label>Email for Receipt (optional)</label>
-                    <input type="email" class="form-control" name="donorEmail" placeholder="your_email@example.com" pattern="[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}">
+                    <input type="email" class="form-control" name="donorEmail" placeholder="your@email.com">
                 </div>
                 
                 <div class="form-group">
@@ -1611,8 +1611,7 @@ renderFoundConfirmation(dropId) {
                         <form onsubmit="app.handleArtistLogin(event)">
                             <div class="form-group">
                                 <label>Email</label>
-                                <input type="email" class="form-control" name="email" required placeholder="your_email@example.com" pattern="[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}">
-
+                                <input type="email" class="form-control" name="email" required placeholder="your@email.com">
                             </div>
                             <div class="form-group">
                                 <label>Password</label>
@@ -1654,8 +1653,7 @@ renderFoundConfirmation(dropId) {
                             </div>
                             <div class="form-group">
                                 <label>Email</label>
-                                <input type="email" class="form-control" name="email" required placeholder="your_email@example.com" pattern="[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}">
-
+                                <input type="email" class="form-control" name="email" required placeholder="your@email.com">
                             </div>
                             <div class="form-group">
                                 <label>Password</label>
@@ -2819,8 +2817,7 @@ renderDropCard(drop) {
                         <form onsubmit="app.handleFinderLogin(event)">
                             <div class="form-group">
                                 <label>Email</label>
-                                <input type="email" class="form-control" name="email" required placeholder="your_email@example.com" pattern="[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}">
-
+                                <input type="email" class="form-control" name="email" required placeholder="your@email.com">
                             </div>
                             <div class="form-group">
                                 <label>Password</label>
@@ -2864,8 +2861,7 @@ renderDropCard(drop) {
                             </div>
                             <div class="form-group">
                                 <label>Email</label>
-                                <input type="email" class="form-control" name="email" required placeholder="your_email@example.com" pattern="[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}">
-
+                                <input type="email" class="form-control" name="email" required placeholder="your@email.com">
                             </div>
                             <div class="form-group">
                                 <label>Password</label>
@@ -2905,8 +2901,7 @@ renderDropCard(drop) {
                                     
                                     <div class="form-group">
                                         <label>Email *</label>
-                                        <input type="email" class="form-control" name="email" required placeholder="your_email@example.com" pattern="[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}">
-
+                                        <input type="email" class="form-control" name="email" required placeholder="your@email.com">
                                     </div>
                                     
                                     <div class="form-group">
