@@ -79,30 +79,55 @@ async function ensureUserDocument(user) {
         const userSnap = await getDoc(userRef);
         
         if (!userSnap.exists()) {
-            await setDoc(userRef, {
+            // Create COMPLETE user profile with ALL required fields
+            const completeProfile = {
+                // Core identity
                 userId: user.uid,
                 id: user.uid,
                 name: user.displayName || 'Artist',
                 email: user.email,
-                profilePhoto: user.photoURL || '',
+                profilePhoto: user.photoURL || 'https://i.pravatar.cc/200?img=1',
+                
+                // User type
                 userType: 'artist',
+                
+                // Bio & location
                 bio: '',
                 city: '',
+                
+                // Social media
                 instagram: '',
                 tiktok: '',
                 facebook: '',
                 website: '',
+                
+                // Stats
                 followerCount: 0,
                 totalDonations: 0,
                 activeDrops: 0,
-                joinDate: new Date().toISOString().split('T')[0],
+                
+                // Art collection (for finders)
+                foundArt: [],
+                followedArtists: [],
+                followedLocations: [],
+                totalFinds: 0,
+                
+                // Timestamps
+                joinDate: new Date().toISOString().split('T'),
                 createdAt: serverTimestamp()
-            });
-            console.log("✅ User document created");
+            };
+            
+            await setDoc(userRef, completeProfile);
+            console.log('✅ Complete user profile created for:', user.email);
+            
+            return completeProfile;
+        } else {
+            console.log('✅ User profile already exists');
+            return { id: user.uid, ...userSnap.data() };
         }
-        return userSnap;
     } catch (error) {
-        console.error("❌ Error ensuring user document:", error);
+        console.error('❌ Error ensuring user document:', error);
+        throw error;
     }
 }
 
@@ -2150,92 +2175,96 @@ renderQRTagGenerator(dropId) {
 },
 
             renderArtistProfile(artistId) {
-                const artist = appState.artists.find(a => a.id === artistId);
-                if (!artist) {
-                    return '<div class="container"><p>Artist not found</p></div>';
-                }
+                // Type-safe artist lookup
+    const artist = appState.artists.find(a => String(a.id) === String(artistId));
+    
+    if (!artist) {
+        console.error('Artist not found:', artistId);
+        return `<div class="container"><p>Error: Artist not found.</p></div>`;
+    }
+
+    // Defensive field access with fallbacks
+    const name = artist.name || 'Unknown Artist';
+    const bio = artist.bio || 'No bio available.';
+    const city = artist.city || '';
+    const profilePhoto = artist.profilePhoto || 'https://i.pravatar.cc/200?img=1';
+    const followerCount = artist.followerCount || 0;
+    const totalDonations = artist.totalDonations || 0;
+    const activeDrops = artist.activeDrops || 0;
+    const instagram = artist.instagram || '';
+    const tiktok = artist.tiktok || '';
+    const facebook = artist.facebook || '';
+    const website = artist.website || '';
+    
+    // Get artist's drops
+    const artistDrops = appState.artDrops.filter(d => String(d.artistId) === String(artistId));
+    
+    // Check if current user follows this artist
+    const isFollowing = appState.currentUser ? 
+        appState.follows.some(f => 
+            f.followerId === appState.currentUser.id && 
+            f.targetType === 'artist' && 
+            String(f.targetId) === String(artistId)
+        ) : false;
                 
-                const artistDrops = appState.artDrops.filter(d => d.artistId === artistId);
-                const isFollowing = appState.currentUser && appState.follows.some(
-                    f => f.followerId === appState.currentUser.id && f.targetType === 'artist' && f.targetId === artistId
-                );
+               return `
+        <div class="container">
+            <div class="artist-header" style="display: flex; gap: 3rem; align-items: start; margin-bottom: 3rem;">
+                <img src="${profilePhoto}" alt="${name}" style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-black);">
                 
-                return `
-                    <div class="container" style="max-width: 1200px;">
-                        <!-- Artist Header -->
-                        <div class="card" style="margin-bottom: 3rem;">
-                            <div class="card-content" style="padding: 2rem;">
-                                <div style="display: flex; gap: 2rem; align-items: flex-start; flex-wrap: wrap;">
-                                    <img src="${artist.profilePhoto}" alt="${artist.name}" style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-black);">
-                                    <div style="flex: 1; min-width: 250px;">
-                                        <h1 style="margin-bottom: 0.5rem;">${artist.name}</h1>
-                                        <p style="color: var(--text-gray); margin-bottom: 1rem;">${artist.city || 'Artist'}</p>
-                                        <p style="line-height: 1.8; margin-bottom: 1.5rem;">${artist.bio}</p>
-                                        
-                                        ${artist.instagram || artist.tiktok || artist.website ? `
-                                            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
-                                                ${artist.instagram ? `<a href="https://instagram.com/${artist.instagram.replace('@', '')}" target="_blank" style="color: var(--primary-black); text-decoration: underline; font-size: 0.9rem;">Instagram</a>` : ''}
-                                                ${artist.tiktok ? `<a href="https://tiktok.com/${artist.tiktok}" target="_blank" style="color: var(--primary-black); text-decoration: underline; font-size: 0.9rem;">TikTok</a>` : ''}
-                                                ${artist.website ? `<a href="${artist.website}" target="_blank" style="color: var(--primary-black); text-decoration: underline; font-size: 0.9rem;">Website</a>` : ''}
-                                            </div>
-                                        ` : ''}
-                                        
-                                        ${appState.currentUser ? `
-                                            <button class="btn btn-${isFollowing ? 'secondary' : 'primary'}" onclick="app.toggleFollowArtist('${artist.id}')" style="min-height: 48px; width: 100%; max-width: 300px; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                                                ${isFollowing ? 'Unfollow' : '<svg class="icon icon-small" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg> Follow'}
-                                            </button>
-                                        ` : ''}
-                                    </div>
-                                </div>
-                            </div>
+                <div style="flex: 1;">
+                    <h1 style="margin: 0 0 0.5rem;">${name}</h1>
+                    ${city ? `<p style="color: var(--text-gray); margin: 0 0 1rem;">📍 ${city}</p>` : ''}
+                    <p style="color: var(--text-dark); line-height: 1.6; margin-bottom: 2rem;">${bio}</p>
+                    
+                    <div style="display: flex; gap: 3rem; margin-bottom: 2rem;">
+                        <div>
+                            <div style="font-size: 2rem; font-weight: 700;">${followerCount}</div>
+                            <div style="color: var(--text-gray);">Followers</div>
                         </div>
-                        
-                        <!-- Stats -->
-                        <div class="stats-grid" style="margin-bottom: 3rem;">
-                            <div class="stat-card">
-                                <div class="stat-value">${artist.followerCount || 0}</div>
-                                <div class="stat-label">Followers</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-value">${artistDrops.length}</div>
-                                <div class="stat-label">Total Drops</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-value">$${artist.totalDonations.toFixed(2)}</div>
-                                <div class="stat-label">Total Donations</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-value">${artistDrops.filter(d => d.status === 'active').length}</div>
-                                <div class="stat-label">Active Drops</div>
-                            </div>
+                        <div>
+                            <div style="font-size: 2rem; font-weight: 700;">${activeDrops}</div>
+                            <div style="color: var(--text-gray);">Active Drops</div>
                         </div>
-                        
-                        <!-- Art Drops -->
-                        <h2 style="margin-bottom: 2rem;">Art Drops (${artistDrops.length})</h2>
-                        ${artistDrops.length > 0 ? `
-                            <div class="grid grid-3">
-                                ${artistDrops.map(drop => this.renderDropCard(drop)).join('')}
-                            </div>
-                        ` : `
-                            <div class="empty-state">
-                                <div class="empty-state-icon">🎨</div>
-                                <div class="empty-state-title">No art drops yet</div>
-                                <p class="empty-state-text">This artist hasn't dropped any art yet</p>
-                            </div>
-                        `}
-                        
-                        <!-- Map Preview -->
-                        ${artistDrops.length > 0 ? `
-                            <div style="margin-top: 3rem;">
-                                <h2 style="margin-bottom: 1rem;">All Drops on Map</h2>
-                                <div class="map-container" style="height: 400px;">
-                                    <div id="artistMapPreview"></div>
-                                </div>
-                            </div>
-                        ` : ''}
+                        <div>
+                            <div style="font-size: 2rem; font-weight: 700;">$${totalDonations.toFixed(0)}</div>
+                            <div style="color: var(--text-gray);">Total Donated</div>
+                        </div>
                     </div>
-                `;
-            },
+                    
+                    ${(instagram || tiktok || facebook || website) ? `
+                    <div style="display: flex; gap: 1.5rem; margin-bottom: 2rem; flex-wrap: wrap;">
+                        ${instagram ? `<a href="https://instagram.com/${instagram.replace('@', '')}" target="_blank" style="color: var(--primary-black); text-decoration: underline;">Instagram</a>` : ''}
+                        ${tiktok ? `<a href="https://tiktok.com/@${tiktok}" target="_blank" style="color: var(--primary-black); text-decoration: underline;">TikTok</a>` : ''}
+                        ${facebook ? `<a href="${facebook}" target="_blank" style="color: var(--primary-black); text-decoration: underline;">Facebook</a>` : ''}
+                        ${website ? `<a href="${website}" target="_blank" style="color: var(--primary-black); text-decoration: underline;">Website</a>` : ''}
+                    </div>
+                    ` : ''}
+                    
+                    ${appState.currentUser && String(appState.currentUser.id) !== String(artistId) ? `
+                    <button class="btn btn-${isFollowing ? 'secondary' : 'primary'}" 
+                            onclick="app.toggleFollowArtist('${artistId}')" 
+                            style="min-height: 48px; min-width: 150px;">
+                        ${isFollowing ? '✓ Following' : '+ Follow Artist'}
+                    </button>
+                    ` : ''}
+                </div>
+            </div>
+
+            ${artistDrops.length > 0 ? `
+            <h2 style="margin-bottom: 2rem;">Art Drops</h2>
+            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem;">
+                ${artistDrops.map(drop => this.renderDropCard(drop)).join('')}
+            </div>
+            ` : `
+            <div style="text-align: center; padding: 3rem; background: var(--light-gray); border-radius: 12px;">
+                <h3>No art drops yet</h3>
+                <p style="color: var(--text-gray);">This artist hasn't dropped any art yet. Check back soon!</p>
+            </div>
+            `}
+        </div>
+    `;
+},
     renderArtStory(dropId) {
     // 1. Defensive lookup
     const drop = appState.artDrops.find(d => String(d.id) === String(dropId));
@@ -3063,64 +3092,88 @@ async handleArtistSignup(e) {
         // Get profile photo if uploaded
         let profilePhoto = 'https://i.pravatar.cc/200?img=1';
         const fileInput = document.getElementById('signupProfileInput');
-        
         if (fileInput && fileInput.files.length > 0) {
+            this.showLoadingOverlay('Uploading photo...');
             profilePhoto = await uploadPhotoToStorage(fileInput.files);
         }
+
+        this.showLoadingOverlay('Creating account...');
+
+        // Firebase signup
+        const result = await createUserWithEmailAndPassword(auth, email, password);
         
-        // Try Firebase signup
-        try {
-            const result = await createUserWithEmailAndPassword(auth, email, password);
-            
-            await ensureUserDocument({
-                uid: result.user.uid,
-                email: email,
-                displayName: name,
-                photoURL: profilePhoto
-            });
-            
-            appState.currentUser = {
-                id: result.user.uid,
-                name: name,
-                email: email,
-                profilePhoto: profilePhoto,
-                userType: 'artist',
-                bio: bio,
-                totalDonations: 0,
-                activeDrops: 0
-            };
-            
-            this.showToast('✅ Account created successfully!');
-            this.showPage('home');
-            return;
-        } catch (firebaseError) {
-            console.log("Firebase signup failed:", firebaseError);
-        }
-        
-        // Add to local cache if Firebase fails
-        const newArtist = {
-            id: Date.now(),
+        // Create COMPLETE user profile in Firestore
+        const userRef = doc(db, 'users', result.user.uid);
+        await setDoc(userRef, {
+            // Core identity
+            userId: result.user.uid,
+            id: result.user.uid,
             name: name,
             email: email,
-            password: password,
             profilePhoto: profilePhoto,
-            bio: bio,
+            
+            // User type
             userType: 'artist',
-            joinDate: new Date().toISOString().split('T'),
+            
+            // Bio & location
+            bio: bio || '',
+            city: '',
+            
+            // Social media
+            instagram: '',
+            tiktok: '',
+            facebook: '',
+            website: '',
+            
+            // Stats
+            followerCount: 0,
             totalDonations: 0,
             activeDrops: 0,
-            city: ''
+            
+            // Timestamps
+            joinDate: new Date().toISOString().split('T'),
+            createdAt: serverTimestamp()
+        });
+
+        console.log('✅ Artist profile created:', result.user.uid);
+
+        // Set appState with ALL required fields
+        appState.currentUser = {
+            id: result.user.uid,
+            name: name,
+            email: email,
+            profilePhoto: profilePhoto,
+            userType: 'artist',
+            bio: bio || '',
+            city: '',
+            instagram: '',
+            tiktok: '',
+            facebook: '',
+            website: '',
+            followerCount: 0,
+            totalDonations: 0,
+            activeDrops: 0,
+            joinDate: new Date().toISOString().split('T')
         };
-        
-        appState.artists.push(newArtist);
-        appState.currentUser = newArtist;
-        
+
+        this.hideLoadingOverlay();
         this.showToast('✅ Account created successfully!');
-        this.showPage('home');
-        
+        this.showPage('artist-dashboard');
+
     } catch (error) {
         console.error('❌ Signup error:', error);
-        this.showToast('Signup failed: ' + error.message);
+        this.hideLoadingOverlay();
+        
+        let message = 'Signup failed';
+        if (error.code === 'auth/email-already-in-use') {
+            message = 'Email already in use. Please login instead.';
+        } else if (error.code === 'auth/invalid-email') {
+            message = 'Invalid email address.';
+        } else if (error.code === 'auth/weak-password') {
+            message = 'Password is too weak. Use at least 6 characters.';
+        }
+        
+        this.showToast(message);
     }
 },
             renderRecentDonations() {
@@ -3327,16 +3380,16 @@ async handleArtistSignup(e) {
     }
 },
 
-            signInWithApple() {
-                const provider = new OAuthProvider('apple.com');
-    
+       signInWithApple() {
+    const provider = new OAuthProvider('apple.com');
     signInWithPopup(auth, provider)
         .then(async (result) => {
-            console.log("✅ Apple sign in successful");
+            console.log('✅ Apple sign in successful');
             
+            // Ensure user document exists with complete profile
             await ensureUserDocument(result.user);
             
-            // Load full user profile from Firestore
+            // Load COMPLETE user profile from Firestore
             const userRef = doc(db, 'users', result.user.uid);
             const userSnap = await getDoc(userRef);
             
@@ -3359,48 +3412,31 @@ async handleArtistSignup(e) {
                     followerCount: userData.followerCount || 0,
                     totalDonations: userData.totalDonations || 0,
                     activeDrops: userData.activeDrops || 0,
-                    joinDate: userData.joinDate || new Date().toISOString().split('T')[0]
+                    joinDate: userData.joinDate || new Date().toISOString().split('T')
                 };
-            } else {
-                // Fallback with all required fields
-                appState.currentUser = {
-                    id: result.user.uid,
-                    name: result.user.displayName || 'Apple User',
-                    email: result.user.email,
-                    profilePhoto: result.user.photoURL || 'https://i.pravatar.cc/200?img=50',
-                    userType: 'artist',
-                    bio: '',
-                    city: '',
-                    instagram: '',
-                    tiktok: '',
-                    facebook: '',
-                    website: '',
-                    followerCount: 0,
-                    totalDonations: 0,
-                    activeDrops: 0,
-                    joinDate: new Date().toISOString().split('T')[0]
-                };
+                
+                console.log('✅ User profile loaded:', appState.currentUser.name);
             }
             
-            this.showToast('Welcome!');
+            this.showToast(`✅ Welcome!`);
             this.showPage('home');
         })
         .catch((error) => {
             console.error('❌ Apple sign in error:', error);
             this.showToast('Sign in failed: ' + error.message);
         });
-            },
+},
 
-            signInWithGoogle() {
-               const provider = new GoogleAuthProvider();
-    
+     signInWithGoogle() {
+    const provider = new GoogleAuthProvider();
     signInWithPopup(auth, provider)
         .then(async (result) => {
-            console.log("✅ Google sign in successful:", result.user.email);
+            console.log('✅ Google sign in successful:', result.user.email);
             
+            // Ensure user document exists with complete profile
             await ensureUserDocument(result.user);
             
-            // Load full user profile from Firestore
+            // Load COMPLETE user profile from Firestore
             const userRef = doc(db, 'users', result.user.uid);
             const userSnap = await getDoc(userRef);
             
@@ -3423,37 +3459,20 @@ async handleArtistSignup(e) {
                     followerCount: userData.followerCount || 0,
                     totalDonations: userData.totalDonations || 0,
                     activeDrops: userData.activeDrops || 0,
-                    joinDate: userData.joinDate || new Date().toISOString().split('T')[0]
+                    joinDate: userData.joinDate || new Date().toISOString().split('T')
                 };
-            } else {
-                // Fallback with all required fields
-                appState.currentUser = {
-                    id: result.user.uid,
-                    name: result.user.displayName || 'Artist',
-                    email: result.user.email,
-                    profilePhoto: result.user.photoURL || 'https://i.pravatar.cc/200?img=1',
-                    userType: 'artist',
-                    bio: '',
-                    city: '',
-                    instagram: '',
-                    tiktok: '',
-                    facebook: '',
-                    website: '',
-                    followerCount: 0,
-                    totalDonations: 0,
-                    activeDrops: 0,
-                    joinDate: new Date().toISOString().split('T')[0]
-                };
+                
+                console.log('✅ User profile loaded:', appState.currentUser.name);
             }
             
-            this.showToast('Welcome, ' + appState.currentUser.name + '!');
+            this.showToast(`✅ Welcome, ${appState.currentUser.name}!`);
             this.showPage('home');
         })
         .catch((error) => {
             console.error('❌ Google sign in error:', error);
             this.showToast('Sign in failed: ' + error.message);
         });
-            },
+},
 
             handleProfilePhotoPreview(event, previewId) {
                 const file = event.target.files[0];
