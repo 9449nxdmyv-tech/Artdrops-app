@@ -689,42 +689,46 @@ const appState = {
         
         const app = {
    init() {
-    console.log("🚀 Initializing ArtDrops app...");
+    console.log('🚀 Initializing ArtDrops app...');
     
-    // Step 1: Request location permission
     this.requestLocationPermission();
     
-    // Step 2: Load Firebase data in the background
+    // Load Firebase data in the background
     (async () => {
         try {
-            console.log("🔄 Loading Firebase data...");
+            console.log('🔄 Loading Firebase data...');
             
-            // Load both datasets in parallel
-            const [artDrops, locations] = await Promise.all([
-                loadArtDropsFromFirebase(),
-                loadLocationsFromFirebase(),
-                loadArtistsFromFirebase()  
+            // Load all datasets in parallel with proper error handling
+            const [artDrops, locations, artists] = await Promise.all([
+                loadArtDropsFromFirebase().catch(err => {
+                    console.error('Error loading art drops:', err);
+                    return []; // Return empty array on error
+                }),
+                loadLocationsFromFirebase().catch(err => {
+                    console.error('Error loading locations:', err);
+                    return []; // Return empty array on error
+                }),
+                loadArtistsFromFirebase().catch(err => {
+                    console.error('Error loading artists:', err);
+                    return []; // Return empty array on error
+                })
             ]);
             
-            console.log("✅ Firebase data loaded successfully");
-            console.log("   - Art Drops:", artDrops.length);
-            console.log("   - Locations:", locations.length);
-            console.log("   - Artists:", artists.length); 
+            console.log('✅ Firebase data loaded successfully');
+            console.log('   - Art Drops:', artDrops?.length || 0);    // Safe access with fallback
+            console.log('   - Locations:', locations?.length || 0);    // Safe access with fallback
+            console.log('   - Artists:', artists?.length || 0);        // Safe access with fallback
             
         } catch (error) {
-            console.error("❌ Error loading Firebase data:", error);
-            console.log("⚠️ Using demo data from appState");
-            
+            console.error('❌ Error loading Firebase data:', error);
+            console.log('⚠️ Using demo data from appState');
         }
     })();
     
-    // Step 3: Show landing page (doesn't wait for data)
     this.showPage('landing');
-    
-    // Step 4: Initialize navigation
     this.updateNav();
     
-    console.log("✅ App initialized");
+    console.log('✅ App initialized');
 },
 
             requestLocationPermission() {
@@ -2310,7 +2314,7 @@ renderQRTagGenerator(dropId) {
                     <span class="badge badge-${drop.status === 'active' ? 'active' : 'found'}">${drop.status === 'active' ? 'Active' : 'Found'}</span>
                     <h1 style="margin: 1rem 0;">${drop.title}</h1>
                     
-                    <div class="artist-section" style="display: block; cursor: pointer;" onclick="app.showPage('artist-profile', {artistId: ${artist.id}})">
+                    <div class="artist-section" style="display: block; cursor: pointer;" onclick="app.showPage('artist-profile', {artistId: '${artist.id}'})">
                         <div style="display: flex; align-items: center; gap: 2rem; margin-bottom: 2rem;">
                             ${artist.profilePhoto ? `<img src="${artist.profilePhoto}" alt="${artist.name}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary-black);">` : ''}
                             <div>
