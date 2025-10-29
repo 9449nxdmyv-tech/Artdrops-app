@@ -970,6 +970,67 @@ const appState = {
     this.updateNav();
     window.scrollTo(0, 0);
 },
+ async toggleFollowArtist(artistId) {
+    if (!appState.currentUser) {
+        this.showToast('Please sign in to follow artists');
+        this.showPage('finder-login');
+        return;
+    }
+
+    try {
+        const followId = `${appState.currentUser.id}_artist_${artistId}`;
+        const followRef = doc(db, 'follows', followId);
+        const followSnap = await getDoc(followRef);
+
+        if (followSnap.exists()) {
+            // Unfollow
+            await deleteDoc(followRef);
+            
+            // Decrement artist's follower count
+            const artistRef = doc(db, 'users', artistId.toString());
+            await updateDoc(artistRef, {
+                followerCount: increment(-1)
+            });
+            
+            // Update local cache
+            const artist = appState.artists.find(a => String(a.id) === String(artistId));
+            if (artist && artist.followerCount) {
+                artist.followerCount--;
+            }
+            
+            this.showToast('Unfollowed artist');
+        } else {
+            // Follow
+            await setDoc(followRef, {
+                followerId: appState.currentUser.id,
+                targetType: 'artist',
+                targetId: artistId.toString(),
+                dateFollowed: serverTimestamp()
+            });
+            
+            // Increment artist's follower count
+            const artistRef = doc(db, 'users', artistId.toString());
+            await updateDoc(artistRef, {
+                followerCount: increment(1)
+            });
+            
+            // Update local cache
+            const artist = appState.artists.find(a => String(a.id) === String(artistId));
+            if (artist) {
+                artist.followerCount = (artist.followerCount || 0) + 1;
+            }
+            
+            this.showToast('Following artist');
+        }
+        
+        // Re-render current page to update follow button
+        this.showPage(appState.currentPage, {artistId: artistId});
+        
+    } catch (error) {
+        console.error('Error toggling artist follow:', error);
+        this.showToast('Failed to update follow status');
+    }
+},
 generateQRCode(dropId) {
     try {
         const qrcodeElement = document.getElementById('qrcode');
@@ -1322,7 +1383,168 @@ generateQRCode(dropId) {
                     </div>
                 `;
             },
+renderFoundConfirmation(dropId) {
+    const drop = appState.artDrops.find(d => String(d.id) === String(dropId));
+    if (!drop) {
+        return `<div class="container"><p>Error: Art drop not found.</p></div>`;
+    }
 
+    return `
+        <div class="container" style="max-width: 600px; text-align: center;">
+            <div style="padding: 3rem 1.5rem;">
+                <div style="width: 100px; height: 100px; background: var(--sage-green); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 2rem;">
+                    <svg style="width: 60px; height: 60px;" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                </div>
+                
+                <h1 style="margin-bottom: 1rem;">You Found It!</h1>
+                <h2 style="color: var(--text-gray); font-weight: 400; margin-bottom: 3rem;">"${drop.title}"</h2>
+                
+                <form onsubmit="app.handleFoundSubmit(event, ${drop.id})" style="text-align: left;">
+                    <div class="form-group">
+                        <label>Your Name (optional)</label>
+                        <input type="text" class="form-control" name="finderName" placeholder="Anonymous">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Leave a Message for the Artist</label>
+                        <textarea class="form-control" name="message" rows="4" placeholder="Share your thoughts about this discovery..."></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-large" style="width: 100%; min-height: 56px; margin-top: 1rem;">
+                        Record Find
+                    </button>
+                </form>
+                
+                <p style="color: var(--text-gray); font-size: 0.9rem; margin-top: 2rem;">
+                    Your find will be recorded and shared with ${drop.artistName}
+                </p>
+            </div>
+        </div>
+    `;
+},
+            renderDonationFlow(dropId) {
+    const drop = appState.artDrops.find(d => String(d.id) === String(dropId));
+    if (!drop) {
+        return `<div class="container"><p>Error: Art drop not found.</p></div>`;
+    }
+
+    const artist = appState.artists.find(a => String(a.id) === String(drop.artistId));
+    const artistName = artist ? artist.name : drop.artistName;
+
+    return `
+        <div class="container" style="max-width: 600px;">
+            <h1 style="text-align: center; margin-bottom: 2rem;">Support ${artistName}</h1>
+            
+            <div class="card" style="margin-bottom: 2rem;">
+                <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;">
+                <div class="card-content" style="padding: 1.5rem;">
+                    <h3 style="margin: 0 0 0.5rem;">${drop.title}</h3>
+                    <p style="color: var(--text-gray); margin: 0;">📍 ${drop.locationName}</p>
+                </div>
+            </div>
+            
+            <form onsubmit="app.handleDonation(event, ${drop.id})">
+                <h3 style="margin-bottom: 1rem;">Choose Amount</h3>
+                
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem;">
+                    <button type="button" class="donation-btn btn btn-outline" data-amount="3" onclick="app.selectDonationAmount(3, event)" style="min-height: 60px; font-size: 1.2rem; font-weight: 600;">$3</button>
+                    <button type="button" class="donation-btn btn btn-outline" data-amount="5" onclick="app.selectDonationAmount(5, event)" style="min-height: 60px; font-size: 1.2rem; font-weight: 600;">$5</button>
+                    <button type="button" class="donation-btn btn btn-outline" data-amount="10" onclick="app.selectDonationAmount(10, event)" style="min-height: 60px; font-size: 1.2rem; font-weight: 600;">$10</button>
+                </div>
+                
+                <div class="form-group">
+                    <label>Custom Amount</label>
+                    <input type="number" id="customAmount" name="customAmount" class="form-control" placeholder="Enter amount" min="1" step="0.01">
+                </div>
+                
+                <div class="form-group">
+                    <label>Your Name (optional)</label>
+                    <input type="text" class="form-control" name="donorName" placeholder="Anonymous">
+                </div>
+                
+                <div class="form-group">
+                    <label>Email for Receipt (optional)</label>
+                    <input type="email" class="form-control" name="donorEmail" placeholder="your@email.com">
+                </div>
+                
+                <div class="form-group">
+                    <label>Message to Artist (optional)</label>
+                    <textarea class="form-control" name="message" rows="3" placeholder="Leave a message..."></textarea>
+                </div>
+                
+                <div style="background: var(--light-gray); padding: 1rem; border-radius: 8px; margin-bottom: 2rem; font-size: 0.9rem;">
+                    <p style="margin: 0 0 0.5rem; color: var(--text-gray);">
+                        <strong>Platform fee:</strong> ${(appState.platformCommission * 100).toFixed(0)}%
+                    </p>
+                    <p style="margin: 0; color: var(--text-gray);">
+                        100% of the remaining amount goes directly to the artist.
+                    </p>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-large" style="width: 100%; min-height: 56px;">
+                    💚 Support Artist
+                </button>
+            </form>
+        </div>
+    `;
+},
+            renderThankYou(dropId, amount) {
+    const drop = appState.artDrops.find(d => String(d.id) === String(dropId));
+    if (!drop) {
+        return `<div class="container"><p>Error: Art drop not found.</p></div>`;
+    }
+
+    const artist = appState.artists.find(a => String(a.id) === String(drop.artistId));
+    const artistName = artist ? artist.name : drop.artistName;
+
+    return `
+        <div class="container" style="max-width: 600px; text-align: center;">
+            <div style="padding: 3rem 1.5rem;">
+                <div style="width: 120px; height: 120px; background: var(--sage-green); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 2rem; font-size: 4rem;">
+                    💚
+                </div>
+                
+                <h1 style="margin-bottom: 1rem;">Thank You!</h1>
+                <p style="color: var(--text-gray); font-size: 1.2rem; margin-bottom: 3rem;">
+                    Your $${amount ? amount.toFixed(2) : '0.00'} donation supports ${artistName}
+                </p>
+                
+                <div style="background: var(--light-gray); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; text-align: left;">
+                    <h3 style="margin-bottom: 1rem;">What's Next?</h3>
+                    <ul style="list-style: none; padding: 0; margin: 0;">
+                        <li style="margin-bottom: 1rem; display: flex; gap: 1rem;">
+                            <span style="color: var(--sage-green); font-size: 1.5rem;">✓</span>
+                            <span>Your donation was recorded and ${artistName} has been notified</span>
+                        </li>
+                        <li style="margin-bottom: 1rem; display: flex; gap: 1rem;">
+                            <span style="color: var(--sage-green); font-size: 1.5rem;">✓</span>
+                            <span>Your find has been added to "${drop.title}"'s story</span>
+                        </li>
+                        <li style="display: flex; gap: 1rem;">
+                            <span style="color: var(--sage-green); font-size: 1.5rem;">✓</span>
+                            <span>Keep exploring to discover more hidden treasures!</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;">
+                    <button class="btn btn-primary" onclick="app.showPage('art-story', {dropId: ${drop.id}})" style="min-height: 48px;">
+                        View Art Story
+                    </button>
+                    <button class="btn btn-secondary" onclick="app.showPage('browse-map')" style="min-height: 48px;">
+                        Find More Art
+                    </button>
+                </div>
+                
+                <p style="color: var(--text-gray); font-size: 0.9rem; margin-top: 3rem;">
+                    Want to spread more joy? Share this art with friends!
+                </p>
+            </div>
+        </div>
+    `;
+},
             renderArtistLogin() {
                 return `
                     <div class="auth-container">
