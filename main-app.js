@@ -8,7 +8,7 @@ import { authService } from '/services/auth-service.js';
 import { dropsService } from '/services/rops-service.js';
 import { locationsService } from '/services/locations-service.js';
 import { storageService } from '/services/storage-service.js';
-import { donationsService } from 's/ervices/donations-service.js';
+import { donationsService } from '/services/donations-service.js';
 import { state } from '/module/state-manager.js';
 import { uiModule } from '/module/ui-module.js';
 import { utils } from '/module/utils.js';
