@@ -1813,8 +1813,7 @@ renderQRTagGenerator(dropId) {
                     </div>
                 `;
             },
-            
-            renderArtStory(dropId) {
+    renderArtStory(dropId) {
     // 1. Defensive lookup
     const drop = appState.artDrops.find(d => String(d.id) === String(dropId));
     if (!drop) {
@@ -1923,15 +1922,21 @@ renderQRTagGenerator(dropId) {
                 </div>
             </div>
 
-            <!-- Related Art from Same Artist -->
-            ${appState.artDrops.filter(d => String(d.artistId) === String(drop.artistId) && String(d.id) !== String(drop.id)).length > 0 ? `
-            <div style="margin-top: 5rem;">
-                <h2 style="margin-bottom: 2rem; text-align: center;">More from ${drop.artistName}</h2>
-                <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem;">
-                    ${appState.artDrops.filter(d => String(d.artistId) === String(drop.artistId) && String(d.id) !== String(drop.id)).slice(0, 3).map(relatedDrop => this.renderDropCard(relatedDrop)).join('')}
-                </div>
-            </div>
-            ` : ''}
+           <!-- Related Art from Same Artist -->
+                ${(() => {
+                    const relatedDrops = appState.artDrops.filter(d => String(d.artistId) === String(drop.artistId) && String(d.id) !== String(drop.id)).slice(0, 3);
+                    if (relatedDrops.length === 0) return '';
+                    
+                    return `
+                    <div style="margin-top: 5rem;">
+                        <h2 style="margin-bottom: 2rem; text-align: center;">More from ${drop.artistName}</h2>
+                        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem;">
+                            ${relatedDrops.map(relatedDrop => this.renderDropCard(relatedDrop)).join('')}
+                        </div>
+                    </div>
+                    `;
+                })()}
+
 
             <!-- Finder Messages -->
             ${drop.findEvents && drop.findEvents.length > 0 ? `
