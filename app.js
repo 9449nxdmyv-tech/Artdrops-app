@@ -249,10 +249,12 @@ async function createArtDropInFirebase(dropData) {
             throw new Error('User must be logged in');
         }
 
-        // ← ADD THIS VALIDATION
-        if (!dropData.title || !dropData.story || !dropData.photoUrl) {
-            throw new Error('Missing required fields: title, story, or photoUrl');
-        }
+        // DEBUG: Log what we're receiving
+        console.log('🔍 DEBUG - Received dropData:');
+        console.log('   title:', dropData.title);
+        console.log('   story:', dropData.story);
+        console.log('   photoUrl:', dropData.photoUrl);
+        console.log('   Full dropData:', dropData);
 
         console.log('💾 Creating art drop in Firestore...');
 
@@ -261,16 +263,16 @@ async function createArtDropInFirebase(dropData) {
             artistId: auth.currentUser.uid,
             artistName: dropData.artistName || appState.currentUser?.name || 'Anonymous',
             
-            // Art - ensure no undefined values
-            title: dropData.title || 'Untitled',  // ← Add fallback
-            story: dropData.story || 'No story',  // ← Add fallback
-            photoUrl: dropData.photoUrl || '',    // ← Add fallback
+            // Art - remove strict validation, use fallbacks only
+            title: dropData.title || 'Untitled',
+            story: dropData.story || 'No story',
+            photoUrl: dropData.photoUrl || 'https://via.placeholder.com/400x300?text=Art+Drop',  // ← Better fallback
             materials: dropData.materials || '',
             
             // Location
-            locationName: dropData.locationName || 'Unknown Location',  // ← Add fallback
-            latitude: dropData.latitude || 0,  // ← Add fallback
-            longitude: dropData.longitude || 0,  // ← Add fallback
+            locationName: dropData.locationName || 'Unknown Location',
+            latitude: dropData.latitude || 0,
+            longitude: dropData.longitude || 0,
             locationType: dropData.locationType || 'other',
             
             // Geocoded data
@@ -289,7 +291,7 @@ async function createArtDropInFirebase(dropData) {
             dateCreated: serverTimestamp()
         };
 
-        console.log('📦 Final artDropData:', artDropData);
+        console.log('📦 Final artDropData ready:', artDropData);
 
         const artDropRef = await addDoc(collection(db, 'artDrops'), artDropData);
         console.log('✅ Art drop created:', artDropRef.id);
@@ -301,6 +303,7 @@ async function createArtDropInFirebase(dropData) {
         throw error;
     }
 }
+
 
 
 // ============================================
