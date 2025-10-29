@@ -2178,6 +2178,15 @@ updateMapMarkers() {
                         <input type="number" id="latitude" name="latitude" step="any" class="form-control" placeholder="Latitude" required>
                         <input type="number" id="longitude" name="longitude" step="any" class="form-control" placeholder="Longitude" required>
                     </div>
+
+                    <!-- Hidden geocoding fields -->
+                    <input type="hidden" id="geocodedCity" value="">
+                    <input type="hidden" id="geocodedState" value="">
+                    <input type="hidden" id="geocodedZip" value="">
+                    <input type="hidden" id="geocodedCountry" value="">
+                    <input type="hidden" id="locationDetails" value="">
+                    <input type="hidden" id="locationAddress" value="">
+
                     <button type="button" class="btn btn-secondary" onclick="app.useCurrentLocation()" style="width: 100%;">
                         📍 Use Current Location
                     </button>
