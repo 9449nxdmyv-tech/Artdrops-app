@@ -2,8 +2,8 @@
 // PAGE RENDERERS - INFO PAGES (About, How It Works, Contact)
 // ============================================
 
-import { state } from './state-manager.js';
-import { uiModule } from './ui-module.js';
+import { state } from '../services/state-manager.js';
+import { uiModule } from '../modules/ui-module.js';
 
 export const infoPages = {
     /**
