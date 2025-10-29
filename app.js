@@ -261,24 +261,6 @@ async function loadArtDropsFromFirebase() {
         console.log("Using demo data from appState");
     }
 }
-
-async function loadLocationsFromFirebase() {
-    try {
-        console.log("Loading locations from Firebase...");
-        const locations = await getFirebaseLocations();
-        
-        if (locations && locations.length > 0) {
-            appState.locations = locations;
-            console.log("✅ Loaded", locations.length, "locations from Firebase");
-        } else {
-            console.log("⚠️ No locations found in Firebase, using demo data");
-        }
-    } catch (error) {
-        console.error("❌ Error loading locations:", error);
-        console.log("Using demo data from appState");
-    }
-}
-
 async function loadArtistsFromFirebase() {
     try {
         console.log("🔄 Loading artists from Firebase...");
@@ -298,6 +280,22 @@ async function loadArtistsFromFirebase() {
         console.error("❌ Error loading artists:", error);
         console.log("Using demo data from appState");
         return appState.artists;
+    }
+}
+async function loadLocationsFromFirebase() {
+    try {
+        console.log("Loading locations from Firebase...");
+        const locations = await getFirebaseLocations();
+        
+        if (locations && locations.length > 0) {
+            appState.locations = locations;
+            console.log("✅ Loaded", locations.length, "locations from Firebase");
+        } else {
+            console.log("⚠️ No locations found in Firebase, using demo data");
+        }
+    } catch (error) {
+        console.error("❌ Error loading locations:", error);
+        console.log("Using demo data from appState");
     }
 }
 
@@ -632,7 +630,7 @@ const appState = {
         // ============================================
         
         const app = {
-            init() {
+   init() {
     console.log("🚀 Initializing ArtDrops app...");
     
     // Step 1: Request location permission
@@ -646,16 +644,19 @@ const appState = {
             // Load both datasets in parallel
             const [artDrops, locations] = await Promise.all([
                 loadArtDropsFromFirebase(),
-                loadLocationsFromFirebase()
+                loadLocationsFromFirebase(),
+                loadArtistsFromFirebase()  
             ]);
             
             console.log("✅ Firebase data loaded successfully");
             console.log("   - Art Drops:", artDrops.length);
             console.log("   - Locations:", locations.length);
+            console.log("   - Artists:", artists.length); 
             
         } catch (error) {
             console.error("❌ Error loading Firebase data:", error);
             console.log("⚠️ Using demo data from appState");
+            
         }
     })();
     
@@ -852,7 +853,11 @@ const appState = {
                         this.showPage('browse-map');
                         return;
                     }
-                    await loadArtDropsFromFirebase();
+                    // Load both art drops AND artists from Firebase before rendering
+                    await Promise.all([
+                        loadArtDropsFromFirebase(),
+                        loadArtistsFromFirebase() // ← Make sure you add this loader function per earlier instructions!
+                    ]);
                     appContainer.innerHTML = this.renderArtStory(data.dropId);
                     setTimeout(() => this.initArtStoryMap(data.dropId), 300);
                     break;
