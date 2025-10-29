@@ -3420,79 +3420,110 @@ async handleArtistLogin(e) {
 
 async handleFoundSubmit(e, dropId) {
     e.preventDefault();
-    
-    console.log("Recording your find...");
+    console.log('Recording your find...');
     
     try {
+        if (!appState.currentUser) {
+            this.showToast('Please sign in to record finds');
+            this.showPage('finder-login');
+            return;
+        }
+
+        this.showLoadingOverlay('Recording find...');
+
         const formData = new FormData(e.target);
-        
         const findEvent = {
             id: Date.now(),
             finderName: formData.get('finderName') || 'Anonymous',
+            finderId: appState.currentUser.id,
             message: formData.get('message') || '',
-            findDate: new Date().toISOString().split('T')[0],
+            findDate: new Date().toISOString(),
             donated: false
         };
-        
-        // Find drop in Firebase or local cache
-        let drop = appState.artDrops.find(d => d.id === dropId);
-        
+
+        // Find drop in local cache
+        const drop = appState.artDrops.find(d => String(d.id) === String(dropId));
         if (!drop) {
             throw new Error('Art drop not found');
         }
-        
-        console.log("Recording find in Firebase...");
-        
-        // Update in Firebase
-        const dropRef = doc(db, 'artDrops', dropId);
+
+        console.log('Recording find in Firebase...');
+
+        // Update the art drop in Firebase
+        const dropRef = doc(db, 'artDrops', String(dropId));
         const dropSnap = await getDoc(dropRef);
-        
+
         if (dropSnap.exists()) {
             const currentData = dropSnap.data();
             const currentEvents = currentData.findEvents || [];
-            
+
+            // Add the new find event
             await updateDoc(dropRef, {
                 findEvents: [...currentEvents, findEvent],
                 foundCount: increment(1),
-                status: 'found',
-                findDate: findEvent.findDate
+                status: 'found'
             });
-            
-            console.log("✅ Find recorded in Firebase");
-        }
-        
-        // Update local cache
-        drop.findEvents.push(findEvent);
-        drop.foundCount++;
-        drop.status = 'found';
-        drop.findDate = findEvent.findDate;
-        
-        // If logged in as finder, update their profile
-        if (appState.currentUser && appState.currentUser.userType === 'finder') {
-            if (!appState.currentUser.foundArt) {
-                appState.currentUser.foundArt = [];
+
+            console.log('✅ Find recorded in Firebase');
+
+            // Update local cache
+            if (!drop.findEvents) drop.findEvents = [];
+            drop.findEvents.push(findEvent);
+            drop.foundCount = (drop.foundCount || 0) + 1;
+            drop.status = 'found';
+
+            // If logged in user is a finder, update their profile
+            if (appState.currentUser && appState.currentUser.userType === 'finder') {
+                if (!appState.currentUser.foundArt) {
+                    appState.currentUser.foundArt = [];
+                }
+                if (!appState.currentUser.foundArt.includes(String(dropId))) {
+                    appState.currentUser.foundArt.push(String(dropId));
+                    appState.currentUser.totalFinds = (appState.currentUser.totalFinds || 0) + 1;
+
+                    // Update in Firebase
+                    const userRef = doc(db, 'users', appState.currentUser.id);
+                    await updateDoc(userRef, {
+                        foundArt: appState.currentUser.foundArt,
+                        totalFinds: appState.currentUser.totalFinds
+                    });
+                }
             }
+
+            this.hideLoadingOverlay();
+            this.showToast('✅ Find recorded! Thank the artist?');
             
-            if (!appState.currentUser.foundArt.includes(dropId)) {
-                appState.currentUser.foundArt.push(dropId);
-                
-                // Update in Firebase
-                const userRef = doc(db, 'users', appState.currentUser.id);
-                await updateDoc(userRef, {
-                    foundArt: appState.currentUser.foundArt,
-                    totalFinds: increment(1)
-                });
-                
-                appState.currentUser.totalFinds = (appState.currentUser.totalFinds || 0) + 1;
-            }
+            // Redirect to donation flow
+            setTimeout(() => {
+                this.showPage('donation-flow', { dropId: String(dropId) });
+            }, 1500);
+
+        } else {
+            // If drop doesn't exist in Firebase yet, create it with the find event
+            await setDoc(dropRef, {
+                ...drop,
+                findEvents: [findEvent],
+                foundCount: 1,
+                status: 'found'
+            });
+
+            this.hideLoadingOverlay();
+            this.showToast('✅ Find recorded!');
+            setTimeout(() => {
+                this.showPage('donation-flow', { dropId: String(dropId) });
+            }, 1500);
         }
-        
-        this.showToast('✅ Find recorded!');
-        this.showPage('donation-flow', { dropId: dropId });
-        
+
     } catch (error) {
         console.error('❌ Error recording find:', error);
-        this.showToast('❌ Failed to record find: ' + error.message);
+        this.hideLoadingOverlay();
+        
+        let message = 'Failed to record find';
+        if (error.code === 'permission-denied') {
+            message = 'Permission denied. Please check Firebase rules.';
+        }
+        
+        this.showToast(message + ': ' + error.message);
     }
 },
             
