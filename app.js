@@ -1236,7 +1236,7 @@ generateQRCode(dropId) {
                         </h2>
                                 <div class="grid grid-3">
                                     ${dropsWithDistance.map(drop => `
-                                        <div class="card" style="cursor: pointer;" onclick="app.showPage('art-story', {dropId: ${drop.id}})">
+                                        <div class="card" style="cursor: pointer;" onclick="app.showPage('art-story', {dropId: '${drop.id}'})">
                                             <img src="${drop.photoUrl}" alt="${drop.title}" class="card-image">
                                             <div class="card-content">
                                                 <span class="badge badge-active">📍 ${this.formatDistance(drop.distance)}</span>
@@ -1293,7 +1293,7 @@ generateQRCode(dropId) {
                         </h2>
                         <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; margin-bottom: 3rem;">
                             ${appState.locations.filter(l => l.trending).slice(0, 3).map(location => `
-                                <div class="card card-interactive" onclick="app.showPage('location-detail', {locationId: ${location.id}})">
+                                <div class="card card-interactive" onclick="app.showPage('location-detail', {locationId: '${location.id}'})">
                                     ${location.featuredPhotos && location.featuredPhotos.length > 0 ? `
                                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; height: 200px; margin: -20px -20px 20px -20px; border-radius: 8px 8px 0 0; overflow: hidden;">
                                             ${location.featuredPhotos.slice(0, 2).map(photo => `
@@ -1881,7 +1881,7 @@ renderMyDrops() {
             const foundCount = drop.foundCount || 0;
             
             html += `
-                <div class="card" onclick="app.showPage('art-story', {dropId: ${drop.id}})">
+                <div class="card" onclick="app.showPage('art-story', {dropId: '${drop.id}'})">
                     <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0; cursor: pointer;" />
                     <div class="card-content" style="padding: 16px;">
                         <span class="badge badge-${badgeClass}">${status}</span>
@@ -2136,7 +2136,7 @@ renderQRTagGenerator(dropId) {
                     ` : ''}
 
                     ${drop.status === 'active' ? `
-                    <button class="btn btn-primary btn-large" onclick="app.showPage('found-confirmation', {dropId: ${drop.id}})" style="width: 100%; margin-bottom: 1rem; min-height: 56px; font-size: 18px;">
+                    <button class="btn btn-primary btn-large" onclick="app.showPage('found-confirmation', {dropId: '${drop.id}'})" style="width: 100%; margin-bottom: 1rem; min-height: 56px; font-size: 18px;">
                         I Found This!
                     </button>
                     ` : `
@@ -2145,7 +2145,7 @@ renderQRTagGenerator(dropId) {
                     </div>
                     `}
 
-                    <button class="btn btn-secondary" onclick="app.showPage('donation-flow', {dropId: ${drop.id}})" style="width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <button class="btn btn-secondary" onclick="app.showPage('donation-flow', {dropId: '${drop.id}'})" style="width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px;">
                         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
                         </svg>
@@ -2200,7 +2200,7 @@ renderDropCard(drop) {
     const foundCount = drop.foundCount || 0;
     
     return `
-        <div class="card" onclick="app.showPage('art-story', {dropId: ${drop.id}})" style="cursor: pointer;">
+        <div class="card" onclick="app.showPage('art-story', {dropId: '${drop.id}'})" style="cursor: pointer;">
             <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;" />
             <div class="card-content" style="padding: 16px;">
                 <span class="badge badge-${badgeClass}">${status}</span>
@@ -2250,7 +2250,7 @@ renderDropCard(drop) {
 
             renderDropCard(drop) {
                 return `
-                    <div class="card card-interactive" onclick="app.showPage('art-story', {dropId: ${drop.id}})">
+                    <div class="card card-interactive" onclick="app.showPage('art-story', {dropId: '${drop.id}'})">
                         <img src="${drop.photoUrl}" alt="${drop.title}" class="card-image">
                         <div class="card-content">
                             <span class="badge badge-${drop.status === 'active' ? 'active' : 'found'}" style="display: inline-flex; align-items: center; gap: 4px;">
@@ -4008,7 +4008,7 @@ useCurrentLocation() {
             }
             
             feedHTML += `
-                <div class="feed-card card" onclick="app.showPage('art-story', {dropId: ${drop.id}})" style="cursor: pointer;">
+                <div class="feed-card card" onclick="app.showPage('art-story', {dropId: '${drop.id}'})" style="cursor: pointer;">
                     <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; height: 250px; object-fit: cover; border-radius: 8px 8px 0 0;" />
                     <div class="card-content" style="padding: 16px;">
                         <span class="badge" style="display: inline-block; padding: 4px 12px; background: var(--primary-black); color: white; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin-bottom: 8px;">
@@ -4113,7 +4113,7 @@ useCurrentLocation() {
                     
                     <h2 class="overlay-title">${drop.title}</h2>
                     
-                    <div class="artist-info-section" onclick="app.showPage('artist-profile', {artistId: ${drop.artistId}}); app.closeOverlay('detailsOverlay');" style="cursor: pointer;">
+                    <div class="artist-info-section" onclick="app.showPage('artist-profile', {artistId: '${drop.artistId}'}); app.closeOverlay('detailsOverlay');" style="cursor: pointer;">
                         <img src="${drop.artistPhoto}" alt="${drop.artistName}" class="artist-profile-pic">
                         <div style="flex: 1;">
                             <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.25rem;">${drop.artistName}</div>
@@ -4389,7 +4389,7 @@ useCurrentLocation() {
                 ) : false;
             
             html += `
-                <div class="card" onclick="app.showPage('location-detail', {locationId: ${location.id}})" style="cursor: pointer;">
+                <div class="card" onclick="app.showPage('location-detail', {locationId: '${location.id}'})" style="cursor: pointer;">
                     <img src="${location.locationPhoto}" alt="${location.name}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;" />
                     <div class="card-content" style="padding: 16px;">
                         <h3 style="margin: 0 0 8px 0; font-weight: 600; font-size: 1.1rem;">${location.name}</h3>
