@@ -1610,26 +1610,7 @@ generateQRCode(dropId) {
                     </div>
                 `;
             },
-renderDropCard(drop) {
-    if (!drop) return '';
-    
-    const status = drop.status === 'active' ? 'Active' : 'Found';
-    const badgeClass = drop.status === 'active' ? 'active' : 'found';
-    const foundCount = drop.foundCount || 0;
-    
-    return `
-        <div class="card" onclick="app.showPage('art-story', {dropId: ${drop.id}})" style="cursor: pointer;">
-            <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;" />
-            <div class="card-content" style="padding: 16px;">
-                <span class="badge badge-${badgeClass}">${status}</span>
-                <h3 style="margin: 8px 0; font-weight: 600;">${drop.title}</h3>
-                <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">📍 ${drop.locationName}</p>
-                <p style="color: #999; font-size: 0.875rem;">Found ${foundCount} time${foundCount !== 1 ? 's' : ''}</p>
-                <p style="color: #999; font-size: 0.875rem;">$${(drop.totalDonations || 0).toFixed(2)} donated</p>
-            </div>
-        </div>
-    `;
-},
+
 renderMyDrops() {
     if (!appState.currentUser) {
         this.showPage('artist-login');
@@ -1976,7 +1957,26 @@ renderQRTagGenerator(dropId) {
         </div>
     `;
 },
-
+renderDropCard(drop) {
+    if (!drop) return '';
+    
+    const status = drop.status === 'active' ? 'Active' : 'Found';
+    const badgeClass = drop.status === 'active' ? 'active' : 'found';
+    const foundCount = drop.foundCount || 0;
+    
+    return `
+        <div class="card" onclick="app.showPage('art-story', {dropId: ${drop.id}})" style="cursor: pointer;">
+            <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;" />
+            <div class="card-content" style="padding: 16px;">
+                <span class="badge badge-${badgeClass}">${status}</span>
+                <h3 style="margin: 8px 0; font-weight: 600;">${drop.title}</h3>
+                <p style="color: #666; font-size: 0.9rem; margin-bottom: 8px;">📍 ${drop.locationName}</p>
+                <p style="color: #999; font-size: 0.875rem;">Found ${foundCount} time${foundCount !== 1 ? 's' : ''}</p>
+                <p style="color: #999; font-size: 0.875rem;">$${(drop.totalDonations || 0).toFixed(2)} donated</p>
+            </div>
+        </div>
+    `;
+},
             renderThankYou(dropId, amount) {
                 const drop = appState.artDrops.find(d => d.id === dropId);
                 
