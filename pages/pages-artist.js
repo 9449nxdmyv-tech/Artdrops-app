@@ -2,6 +2,7 @@
 // PAGE RENDERERS - ARTIST PAGES
 // ============================================
 
+
 import { state } from '../services/state-manager.js';
 import { dropsService } from '../services/drops-service.js';
 import { storageService } from '../services/storage-service.js';
