@@ -1330,7 +1330,7 @@ generateQRCode(dropId) {
                                             </span>
                                         </div>
                                         <div style="display: flex; gap: 0.5rem;">
-                                            <button class="btn btn-primary" onclick="app.toggleFollowLocation(${location.id}); event.stopPropagation();" style="flex: 1; min-height: 40px; font-size: 0.85rem; padding: 0.5rem;">Follow</button>
+                                            <button class="btn btn-primary" onclick="app.toggleFollowLocation('${location.id}'); event.stopPropagation();" style="flex: 1; min-height: 40px; font-size: 0.85rem; padding: 0.5rem;">Follow</button>
                                             <button class="btn btn-secondary" onclick="window.open('https://maps.google.com/?q=${location.latitude},${location.longitude}', '_blank'); event.stopPropagation();" style="flex: 1; min-height: 40px; font-size: 0.85rem; padding: 0.5rem; display: flex; align-items: center; justify-content: center; gap: 4px;">
                                                     <svg class="icon icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                         <circle cx="12" cy="10" r="3"/>
@@ -1401,7 +1401,7 @@ renderFoundConfirmation(dropId) {
                 <h1 style="margin-bottom: 1rem;">You Found It!</h1>
                 <h2 style="color: var(--text-gray); font-weight: 400; margin-bottom: 3rem;">"${drop.title}"</h2>
                 
-                <form onsubmit="app.handleFoundSubmit(event, ${drop.id})" style="text-align: left;">
+                <form onsubmit="app.handleFoundSubmit(event, '${drop.id}')" style="text-align: left;">
                     <div class="form-group">
                         <label>Your Name (optional)</label>
                         <input type="text" class="form-control" name="finderName" placeholder="Anonymous">
@@ -1445,7 +1445,7 @@ renderFoundConfirmation(dropId) {
                 </div>
             </div>
             
-            <form onsubmit="app.handleDonation(event, ${drop.id})">
+            <form onsubmit="app.handleDonation(event, '${drop.id}')">
                 <h3 style="margin-bottom: 1rem;">Choose Amount</h3>
                 
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem;">
@@ -1530,7 +1530,7 @@ renderFoundConfirmation(dropId) {
                 </div>
                 
                 <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;">
-                    <button class="btn btn-primary" onclick="app.showPage('art-story', {dropId: ${drop.id}})" style="min-height: 48px;">
+                    <button class="btn btn-primary" onclick="app.showPage('art-story', {dropId: '${drop.id}'})" style="min-height: 48px;">
                         View Art Story
                     </button>
                     <button class="btn btn-secondary" onclick="app.showPage('browse-map')" style="min-height: 48px;">
@@ -1990,7 +1990,7 @@ renderQRTagGenerator(dropId) {
                                         ` : ''}
                                         
                                         ${appState.currentUser ? `
-                                            <button class="btn btn-${isFollowing ? 'secondary' : 'primary'}" onclick="app.toggleFollowArtist(${artist.id})" style="min-height: 48px; width: 100%; max-width: 300px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                            <button class="btn btn-${isFollowing ? 'secondary' : 'primary'}" onclick="app.toggleFollowArtist('${artist.id}')" style="min-height: 48px; width: 100%; max-width: 300px; display: flex; align-items: center; justify-content: center; gap: 6px;">
                                                 ${isFollowing ? 'Unfollow' : '<svg class="icon icon-small" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg> Follow'}
                                             </button>
                                         ` : ''}
@@ -2119,7 +2119,7 @@ renderQRTagGenerator(dropId) {
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                             <span style="font-size: 0.85rem; color: var(--text-gray);">${location.followerCount} followers</span>
                             ${appState.currentUser ? `
-                            <button class="btn btn-${isFollowingLocation ? 'secondary' : 'primary'}" onclick="app.toggleFollowLocation(${location.id})" style="padding: 0.5rem 1rem; font-size: 0.85rem; min-height: 36px;">
+                            <button class="btn btn-${isFollowingLocation ? 'secondary' : 'primary'}" onclick="app.toggleFollowLocation('${location.id}')" style="padding: 0.5rem 1rem; font-size: 0.85rem; min-height: 36px;">
                                 ${isFollowingLocation ? 'Unfollow Location' : 'Follow Location'}
                             </button>
                             ` : ''}
@@ -2130,7 +2130,7 @@ renderQRTagGenerator(dropId) {
                     </div>
 
                     ${appState.currentUser && artist ? `
-                    <button class="btn btn-${isFollowingArtist ? 'secondary' : 'primary'}" onclick="app.toggleFollowArtist(${artist.id})" style="width: 100%; margin-bottom: 1rem; min-height: 48px;">
+                    <button class="btn btn-${isFollowingArtist ? 'secondary' : 'primary'}" onclick="app.toggleFollowArtist('${artist.id}')" style="width: 100%; margin-bottom: 1rem; min-height: 48px;">
                         ${isFollowingArtist ? 'Unfollow Artist' : 'Follow Artist'}
                     </button>
                     ` : ''}
@@ -4398,7 +4398,7 @@ useCurrentLocation() {
                             <span>${followers} follower${followers !== 1 ? 's' : ''}</span>
                             <span>${drops} drop${drops !== 1 ? 's' : ''}</span>
                         </div>
-                        <button class="btn btn-primary" onclick="event.stopPropagation(); app.toggleFollowLocation(${location.id})" style="width: 100%; min-height: 40px; font-size: 0.9rem;">
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); app.toggleFollowLocation('${location.id}')" style="width: 100%; min-height: 40px; font-size: 0.9rem;">
                             ${isFollowing ? '✓ Following' : 'Follow Location'}
                         </button>
                     </div>
@@ -4469,7 +4469,7 @@ useCurrentLocation() {
                                     </div>
                                 </div>
                                 ${appState.currentUser ? `
-                                    <button class="btn btn-${isFollowing ? 'secondary' : 'primary'}" onclick="app.toggleFollowLocation(${location.id})" style="min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                    <button class="btn btn-${isFollowing ? 'secondary' : 'primary'}" onclick="app.toggleFollowLocation('${location.id}')" style="min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 6px;">
                                         ${isFollowing ? 'Unfollow' : '<svg class="icon icon-small" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Follow Location'}
                                     </button>
                                 ` : ''}
@@ -4592,7 +4592,7 @@ useCurrentLocation() {
                                                     <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.5rem;">${artist.name}</div>
                                                     <div style="font-size: 0.9rem; color: var(--text-gray);">${artist.bio}</div>
                                                 </div>
-                                                <button class="btn btn-secondary" onclick="app.toggleFollowArtist(${artist.id})" style="min-height: 40px; padding: 0.5rem 1.5rem;">Unfollow</button>
+                                                <button class="btn btn-secondary" onclick="app.toggleFollowArtist('${artist.id}')" style="min-height: 40px; padding: 0.5rem 1.5rem;">Unfollow</button>
                                             </div>
                                         `).join('')}
                                     </div>
@@ -4615,7 +4615,7 @@ useCurrentLocation() {
                                                     <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.5rem;">${location.name}</div>
                                                     <div style="font-size: 0.9rem; color: var(--text-gray);">${location.followerCount} followers</div>
                                                 </div>
-                                                <button class="btn btn-secondary" onclick="app.toggleFollowLocation(${location.id})" style="min-height: 40px; padding: 0.5rem 1.5rem;">Unfollow</button>
+                                                <button class="btn btn-secondary" onclick="app.toggleFollowLocation('${location.id}')" style="min-height: 40px; padding: 0.5rem 1.5rem;">Unfollow</button>
                                             </div>
                                         `).join('')}
                                     </div>
