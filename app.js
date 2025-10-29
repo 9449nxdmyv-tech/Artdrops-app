@@ -3734,10 +3734,10 @@ async handleArtistLogin(e) {
         if (urlInput?.value) {
             photoUrl = urlInput.value.trim();
             console.log('✅ Using URL:', photoUrl);
-        } else if (uploadInput?.files?.) {
+        } else if (uploadInput && uploadInput.files && uploadInput.files[0]) {
             this.showLoadingOverlay('Uploading photo...');
             try {
-                photoUrl = await uploadPhotoToStorage(uploadInput.files);
+                photoUrl = await uploadPhotoToStorage(uploadInput.files[0]);
                 console.log('✅ Uploaded:', photoUrl.substring(0, 50));
             } catch (error) {
                 this.hideLoadingOverlay();
