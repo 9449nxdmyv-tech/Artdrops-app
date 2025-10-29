@@ -37,6 +37,7 @@ import {
     getDownloadURL 
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
+
 // Firebase Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyD2dBIb4rNczPQAxsyh-UkKSJrp0gLrnKA",
@@ -198,55 +199,52 @@ async function getFirebaseArtists() {
 
 async function uploadPhotoToStorage(file) {
     try {
-        // CRITICAL: Validate file exists and is a File object
+        console.log('🚀 uploadPhotoToStorage called');
+        console.log('   File name:', file?.name);
+        console.log('   File size:', file?.size);
+        console.log('   File type:', file?.type);
+        
         if (!file) {
             throw new Error('No file provided');
         }
-        
-        if (!(file instanceof File) && !(file instanceof Blob)) {
-            throw new Error('Invalid file type - must be a File object');
-        }
-        
-        // Validate file type
-        if (!file.type) {
-            throw new Error('File type could not be determined');
-        }
-        
-        if (!file.type.match(/image\/(jpeg|jpg|png|gif|webp)/i)) {
-            throw new Error(`Invalid image type: ${file.type}. Please upload JPG, PNG, GIF, or WebP`);
-        }
-        
-        // Validate file size (5MB max)
-        const maxSize = 5 * 1024 * 1024;
-        if (file.size > maxSize) {
-            throw new Error('File size must be less than 5MB');
+
+        if (!file.size) {
+            throw new Error('File is empty');
         }
 
-        console.log('📤 Uploading file:', file.name, 'Size:', (file.size / 1024).toFixed(2) + 'KB');
+        console.log('✅ File is valid, uploading...');
 
+        const userId = auth.currentUser.uid;
         const timestamp = Date.now();
-        const fileName = `${timestamp}_${file.name}`;
-        const storageRef = ref(storage, `artDrops/${auth.currentUser.uid}/${fileName}`);
+        const fileName = `${timestamp}-${file.name}`;
+        const storagePath = `artDrops/${userId}/${fileName}`;
+        
+        console.log('   Storage path:', storagePath);
+
+        // Create reference
+        const storageRef = ref(storage, storagePath);
 
         // Upload file
-        const snapshot = await uploadBytes(storageRef, file);
-        console.log('✅ File uploaded to Storage');
+        const uploadResult = await uploadBytes(storageRef, file);
+        console.log('✅ Upload successful:', uploadResult.metadata.fullPath);
 
         // Get download URL
         const downloadURL = await getDownloadURL(storageRef);
-        console.log('✅ Download URL obtained:', downloadURL);
+        console.log('✅ Got download URL');
         
         return downloadURL;
 
     } catch (error) {
-        console.error('❌ Error uploading photo:', error);
+        console.error('❌ Upload error:', error);
+        console.error('   Error message:', error.message);
+        console.error('   Error code:', error.code);
         throw error;
     }
 }
 
 async function createArtDropInFirebase(dropData) {
     try {
-        const auth = getAuth();
+       
         if (!auth.currentUser) {
             throw new Error('User must be logged in');
         }
@@ -371,7 +369,36 @@ async function loadPopularLocationsFromFirebase() {
     } catch (error) {
         console.error("❌ Error loading popular locations:", error);
     }
-}
+},
+async reverseGeocode(lat, lng) {
+    try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`;
+        
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'ArtDrops App'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data && data.address) {
+            const addr = data.address;
+            return {
+                formattedAddress: data.display_name,
+                city: addr.city || addr.town || addr.village || '',
+                state: addr.state || '',
+                zipCode: addr.postcode || '',
+                country: addr.country_code?.toUpperCase() || ''
+            };
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Geocoding error:', error);
+        return null;
+    }
+},
 
 
 const appState = {
@@ -685,8 +712,7 @@ const appState = {
         // ============================================
         // MAIN APP CONTROLLER
         // ============================================
-        
-        const app = {
+const app = {
    init() {
     console.log('🚀 Initializing ArtDrops app...');
     
@@ -728,6 +754,73 @@ const appState = {
     this.updateNav();
     
     console.log('✅ App initialized');
+},
+    useCurrentLocation() {
+    if (!navigator.geolocation) {
+        this.showToast('Geolocation not supported');
+        return;
+    }
+
+    this.showLoadingOverlay('Getting your location...');
+
+    navigator.geolocation.getCurrentPosition(
+        async (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+
+            // Update coordinate inputs
+            const latInput = document.querySelector('[name="latitude"]');
+            const lonInput = document.querySelector('[name="longitude"]');
+            
+            if (latInput) latInput.value = lat.toFixed(6);
+            if (lonInput) lonInput.value = lng.toFixed(6);
+
+            // Reverse geocode to get address details
+            const locationData = await this.reverseGeocode(lat, lng);
+            
+            if (locationData) {
+                // Update hidden fields
+                document.getElementById('geocodedCity').value = locationData.city;
+                document.getElementById('geocodedState').value = locationData.state;
+                document.getElementById('geocodedZip').value = locationData.zipCode;
+                document.getElementById('geocodedCountry').value = locationData.country;
+                
+                // If no location name provided, auto-fill with city, state, zip
+                const locationNameInput = document.querySelector('[name="locationName"]');
+                if (locationNameInput && !locationNameInput.value) {
+                    const autoName = `${locationData.city}, ${locationData.state} ${locationData.zipCode}`;
+                    locationNameInput.value = autoName;
+                    locationNameInput.placeholder = autoName;
+                }
+                
+                // Show location details
+                const detailsDiv = document.getElementById('locationDetails');
+                const addressDiv = document.getElementById('locationAddress');
+                if (detailsDiv && addressDiv) {
+                    addressDiv.innerHTML = `
+                        <div style="margin-bottom: 0.5rem;"><strong>Address:</strong> ${locationData.formattedAddress}</div>
+                        <div><strong>City:</strong> ${locationData.city}, ${locationData.state} ${locationData.zipCode}</div>
+                    `;
+                    detailsDiv.style.display = 'block';
+                }
+                
+                console.log('✅ Location geocoded:', locationData);
+            }
+
+            // Update map
+            if (this.dropLocationMapInstance) {
+                this.updateDropLocationMap(lat, lng);
+            }
+
+            this.hideLoadingOverlay();
+            this.showToast('✅ Location captured & geocoded!');
+        },
+        (error) => {
+            console.error('Geolocation error:', error);
+            this.hideLoadingOverlay();
+            this.showToast('Unable to get location');
+        }
+    );
 },
 
             requestLocationPermission() {
@@ -3949,104 +4042,6 @@ selectDonationAmount(amount) {
         customInput.value = '';
     }
 },
-
-useCurrentLocation() {
-    if (!navigator.geolocation) {
-        this.showToast('Geolocation not supported');
-        return;
-    }
-
-    this.showLoadingOverlay('Getting your location...');
-
-    navigator.geolocation.getCurrentPosition(
-        async (position) => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-
-            // Update coordinate inputs
-            const latInput = document.querySelector('[name="latitude"]');
-            const lonInput = document.querySelector('[name="longitude"]');
-            
-            if (latInput) latInput.value = lat.toFixed(6);
-            if (lonInput) lonInput.value = lng.toFixed(6);
-
-            // Reverse geocode to get address details
-            const locationData = await this.reverseGeocode(lat, lng);
-            
-            if (locationData) {
-                // Update hidden fields
-                document.getElementById('geocodedCity').value = locationData.city;
-                document.getElementById('geocodedState').value = locationData.state;
-                document.getElementById('geocodedZip').value = locationData.zipCode;
-                document.getElementById('geocodedCountry').value = locationData.country;
-                
-                // If no location name provided, auto-fill with city, state, zip
-                const locationNameInput = document.querySelector('[name="locationName"]');
-                if (locationNameInput && !locationNameInput.value) {
-                    const autoName = `${locationData.city}, ${locationData.state} ${locationData.zipCode}`;
-                    locationNameInput.value = autoName;
-                    locationNameInput.placeholder = autoName;
-                }
-                
-                // Show location details
-                const detailsDiv = document.getElementById('locationDetails');
-                const addressDiv = document.getElementById('locationAddress');
-                if (detailsDiv && addressDiv) {
-                    addressDiv.innerHTML = `
-                        <div style="margin-bottom: 0.5rem;"><strong>Address:</strong> ${locationData.formattedAddress}</div>
-                        <div><strong>City:</strong> ${locationData.city}, ${locationData.state} ${locationData.zipCode}</div>
-                    `;
-                    detailsDiv.style.display = 'block';
-                }
-                
-                console.log('✅ Location geocoded:', locationData);
-            }
-
-            // Update map
-            if (this.dropLocationMapInstance) {
-                this.updateDropLocationMap(lat, lng);
-            }
-
-            this.hideLoadingOverlay();
-            this.showToast('✅ Location captured & geocoded!');
-        },
-        (error) => {
-            console.error('Geolocation error:', error);
-            this.hideLoadingOverlay();
-            this.showToast('Unable to get location');
-        }
-    );
-},
-async reverseGeocode(lat, lng) {
-    try {
-        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`;
-        
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'ArtDrops App'
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (data && data.address) {
-            const addr = data.address;
-            return {
-                formattedAddress: data.display_name,
-                city: addr.city || addr.town || addr.village || '',
-                state: addr.state || '',
-                zipCode: addr.postcode || '',
-                country: addr.country_code?.toUpperCase() || ''
-            };
-        }
-        
-        return null;
-    } catch (error) {
-        console.error('Geocoding error:', error);
-        return null;
-    }
-},
-
             // ============================================
             // HELPER METHODS
             // ============================================
