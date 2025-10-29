@@ -2,7 +2,6 @@
 // MAIN APP - Entry Point
 // ============================================
 
-
 // Import all services and modules
 import { auth, db, storage } from '/services/firebase-config.js';
 import { authService } from '/services/auth-service.js';
