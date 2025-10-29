@@ -249,52 +249,47 @@ async function createArtDropInFirebase(dropData) {
             throw new Error('User must be logged in');
         }
 
-        // DEBUG: Log what we're receiving
-        console.log('🔍 DEBUG - Received dropData:');
-        console.log('   title:', dropData.title);
-        console.log('   story:', dropData.story);
-        console.log('   photoUrl:', dropData.photoUrl);
-        console.log('   Full dropData:', dropData);
-
-        console.log('💾 Creating art drop in Firestore...');
+        console.log('💾 Saving to Firestore...');
+        console.log('   dropData:', dropData);
 
         const artDropData = {
             // Artist
             artistId: auth.currentUser.uid,
-            artistName: dropData.artistName || appState.currentUser?.name || 'Anonymous',
+            artistName: appState.currentUser?.name || 'Anonymous',
             
-            // Art - remove strict validation, use fallbacks only
-            title: dropData.title || 'Untitled',
-            story: dropData.story || 'No story',
-            photoUrl: dropData.photoUrl || 'https://via.placeholder.com/400x300?text=Art+Drop',  // ← Better fallback
-            materials: dropData.materials || '',
+            // Art - NO fallbacks, use exact data
+            title: dropData.title,
+            story: dropData.story,
+            photoUrl: dropData.photoUrl,
+            materials: dropData.materials,
             
             // Location
-            locationName: dropData.locationName || 'Unknown Location',
-            latitude: dropData.latitude || 0,
-            longitude: dropData.longitude || 0,
-            locationType: dropData.locationType || 'other',
+            locationName: dropData.locationName,
+            latitude: dropData.latitude,
+            longitude: dropData.longitude,
+            locationType: dropData.locationType,
             
-            // Geocoded data
-            city: dropData.city || '',
-            state: dropData.state || '',
-            zipCode: dropData.zipCode || '',
-            country: dropData.country || 'US',
+            // Geocoded
+            city: dropData.city,
+            state: dropData.state,
+            zipCode: dropData.zipCode,
+            country: dropData.country,
             
             // Status
             status: 'active',
             foundCount: 0,
             totalDonations: 0,
+            viewCount: 0,
             findEvents: [],
             
             // Timestamp
             dateCreated: serverTimestamp()
         };
 
-        console.log('📦 Final artDropData ready:', artDropData);
+        console.log('📋 Final Firestore data:', artDropData);
 
         const artDropRef = await addDoc(collection(db, 'artDrops'), artDropData);
-        console.log('✅ Art drop created:', artDropRef.id);
+        console.log('✅ Art drop saved:', artDropRef.id);
 
         return artDropRef;
 
@@ -2125,127 +2120,74 @@ updateMapMarkers() {
         <div class="container" style="max-width: 800px;">
             <h1>Drop New Art</h1>
             
-            <form onsubmit="app.handleDropNewArtWithFirebase(event)">
-                <!-- Photo: Choose URL or Upload -->
+            <form onsubmit="app.handleDropNewArt(event)">
+                <!-- Photo: URL or Upload Tab -->
                 <div class="form-group">
                     <label>Photo *</label>
                     
-                    <!-- Tab selection -->
                     <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
-                        <button type="button" class="btn btn-outline" id="urlTabBtn" 
-                                onclick="app.switchPhotoTab('url')" 
-                                style="flex: 1; min-height: 40px;">
-                            URL
-                        </button>
-                        <button type="button" class="btn btn-outline" id="uploadTabBtn" 
-                                onclick="app.switchPhotoTab('upload')" 
-                                style="flex: 1; min-height: 40px;">
-                            Upload
-                        </button>
+                        <button type="button" class="btn btn-outline" id="urlTabBtn" onclick="app.switchPhotoTab('url')" style="flex: 1; min-height: 40px;">URL</button>
+                        <button type="button" class="btn btn-outline" id="uploadTabBtn" onclick="app.switchPhotoTab('upload')" style="flex: 1; min-height: 40px;">Upload</button>
                     </div>
                     
-                    <!-- URL Input (default) -->
                     <div id="photoUrlTab">
-                        <input type="url" id="dropPhotoUrl" name="photoUrl" class="form-control" 
-                               placeholder="https://example.com/image.jpg">
-                        <small style="display: block; margin-top: 0.5rem; color: var(--text-gray);">
-                            Paste a direct image URL (JPG, PNG, GIF)
-                        </small>
+                        <input type="url" id="photoUrl" name="photoUrl" class="form-control" placeholder="https://example.com/image.jpg">
                     </div>
                     
-                    <!-- File Upload (hidden by default) -->
                     <div id="photoUploadTab" style="display: none;">
-                        <input type="file" id="dropPhotoInput" accept="image/*" class="form-control">
-                        <small style="display: block; margin-top: 0.5rem; color: var(--text-gray);">
-                            Maximum 5MB - JPG, PNG, or GIF
-                        </small>
+                        <input type="file" id="photoInput" accept="image/*" class="form-control">
                     </div>
                 </div>
 
                 <!-- Title -->
                 <div class="form-group">
                     <label>Title *</label>
-                    <input type="text" name="title" class="form-control" required 
-                           placeholder="Give your art a memorable name">
+                    <input type="text" id="title" name="title" class="form-control" required placeholder="Name your art">
                 </div>
 
                 <!-- Story -->
                 <div class="form-group">
                     <label>Story *</label>
-                    <textarea name="story" class="form-control" rows="4" required 
-                              placeholder="Tell the story of this piece..."></textarea>
+                    <textarea id="story" name="story" class="form-control" rows="4" required placeholder="Tell the story..."></textarea>
                 </div>
 
                 <!-- Location Type -->
                 <div class="form-group">
                     <label>Location Type *</label>
-                    <select name="locationType" class="form-control" required>
+                    <select id="locationType" name="locationType" class="form-control" required>
                         <option value="">Select type</option>
-                        <option value="coffee-shop">Coffee Shop</option>
-                        <option value="bookstore">Bookstore</option>
                         <option value="park">Park</option>
                         <option value="trail">Trail</option>
-                        <option value="plaza">Plaza</option>
-                        <option value="mall">Mall</option>
-                        <option value="library">Library</option>
+                        <option value="cafe">Cafe</option>
+                        <option value="bookstore">Bookstore</option>
                         <option value="outdoor">Outdoor</option>
                         <option value="other">Other</option>
                     </select>
                 </div>
 
-                <!-- Location Name (optional - auto-populated from geocoding) -->
+                <!-- Location Name -->
                 <div class="form-group">
-                    <label>Location Name (optional)</label>
-                    <input type="text" name="locationName" class="form-control" 
-                           placeholder="e.g., Central Perk Cafe - will auto-populate from coordinates">
-                    <small style="display: block; margin-top: 0.5rem; color: var(--text-gray);">
-                        Leave blank to use "City, State Zip"
-                    </small>
+                    <label>Location Name *</label>
+                    <input type="text" id="locationName" name="locationName" class="form-control" required placeholder="E.g., Central Park Bench">
                 </div>
 
                 <!-- Coordinates -->
                 <div class="form-group">
-                    <label>Location *</label>
+                    <label>Coordinates *</label>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                        <div>
-                            <input type="number" name="latitude" step="any" class="form-control" 
-                                   placeholder="Latitude" required>
-                        </div>
-                        <div>
-                            <input type="number" name="longitude" step="any" class="form-control" 
-                                   placeholder="Longitude" required>
-                        </div>
+                        <input type="number" id="latitude" name="latitude" step="any" class="form-control" placeholder="Latitude" required>
+                        <input type="number" id="longitude" name="longitude" step="any" class="form-control" placeholder="Longitude" required>
                     </div>
-                    
-                    <button type="button" class="btn btn-secondary" onclick="app.useCurrentLocation()" 
-                            style="width: 100%; min-height: 48px;">
-                        📍 Use My Current Location
+                    <button type="button" class="btn btn-secondary" onclick="app.useCurrentLocation()" style="width: 100%;">
+                        📍 Use Current Location
                     </button>
-                </div>
-
-                <!-- Location Details (auto-populated) -->
-                <div id="locationDetails" style="display: none; background: var(--light-gray); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                    <strong>Location Details:</strong>
-                    <div id="locationAddress" style="margin-top: 0.5rem; font-size: 0.9rem;"></div>
-                </div>
-
-                <!-- Map -->
-                <div class="form-group">
-                    <div id="dropLocationMap" style="width: 100%; height: 300px; border-radius: 8px; border: 1px solid var(--border-gray);"></div>
                 </div>
 
                 <!-- Materials -->
                 <div class="form-group">
                     <label>Materials (optional)</label>
-                    <input type="text" name="materials" class="form-control" 
-                           placeholder="e.g., Stone, Acrylic Paint">
+                    <input type="text" id="materials" name="materials" class="form-control" placeholder="E.g., Stone, Acrylic Paint">
                 </div>
-
-                <!-- Hidden fields for geocoded data -->
-                <input type="hidden" name="city" id="geocodedCity">
-                <input type="hidden" name="state" id="geocodedState">
-                <input type="hidden" name="zipCode" id="geocodedZip">
-                <input type="hidden" name="country" id="geocodedCountry">
 
                 <!-- Submit -->
                 <button type="submit" class="btn btn-primary btn-large" style="width: 100%; min-height: 56px;">
@@ -3778,61 +3720,36 @@ async handleArtistLogin(e) {
             return;
         }
 
-        console.log('🎨 Starting art drop creation...');
-
         const submitBtn = e.target.querySelector('button[type="submit"]');
         if (submitBtn) {
             submitBtn.disabled = true;
             submitBtn.textContent = 'Creating...';
         }
 
-        // Get form elements
-        const form = e.target;
-        
-        // STEP 1: Get photo - EITHER from URL or upload
+        // STEP 1: Get photo
         let photoUrl = '';
+        const urlInput = document.getElementById('photoUrl');
+        const uploadInput = document.getElementById('photoInput');
         
-        // Check URL input first
-        const urlInput = document.getElementById('dropPhotoUrl');
-        const uploadInput = document.getElementById('dropPhotoInput');
-        
-        if (urlInput && urlInput.value) {
-            // Using URL - no upload needed
-            photoUrl = urlInput.value;
-            console.log('✅ Using photo URL:', photoUrl);
-            
-            // Validate it's a valid URL
-            try {
-                new URL(photoUrl);
-            } catch (e) {
-                this.showToast('❌ Please enter a valid image URL');
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Create & Generate QR Tag';
-                }
-                return;
-            }
-        } 
-        else if (uploadInput && uploadInput.files && uploadInput.files.length > 0) {
-            // Using file upload
+        if (urlInput?.value) {
+            photoUrl = urlInput.value.trim();
+            console.log('✅ Using URL:', photoUrl);
+        } else if (uploadInput?.files?.) {
             this.showLoadingOverlay('Uploading photo...');
-            
             try {
-                photoUrl = await uploadPhotoToStorage(uploadInput.files[0]);
-                console.log('✅ Photo uploaded:', photoUrl);
+                photoUrl = await uploadPhotoToStorage(uploadInput.files);
+                console.log('✅ Uploaded:', photoUrl.substring(0, 50));
             } catch (error) {
-                console.error('❌ Photo upload failed:', error);
                 this.hideLoadingOverlay();
-                this.showToast('Photo upload failed: ' + error.message);
+                this.showToast('Upload failed: ' + error.message);
                 if (submitBtn) {
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Create & Generate QR Tag';
                 }
                 return;
             }
-        } 
-        else {
-            this.showToast('❌ Please provide a photo URL or upload a file');
+        } else {
+            this.showToast('❌ Please provide photo URL or upload file');
             if (submitBtn) {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Create & Generate QR Tag';
@@ -3842,77 +3759,58 @@ async handleArtistLogin(e) {
 
         this.showLoadingOverlay('Creating art drop...');
 
-        // STEP 2: Collect form data
+        // STEP 2: Collect form fields
+        const title = document.getElementById('title')?.value?.trim();
+        const story = document.getElementById('story')?.value?.trim();
+        const locationType = document.getElementById('locationType')?.value;
+        const locationName = document.getElementById('locationName')?.value?.trim();
+        const latitude = parseFloat(document.getElementById('latitude')?.value);
+        const longitude = parseFloat(document.getElementById('longitude')?.value);
+        const materials = document.getElementById('materials')?.value?.trim() || '';
+
+        console.log('🔍 FORM VALUES:');
+        console.log('   title:', title);
+        console.log('   story:', story);
+        console.log('   locationName:', locationName);
+        console.log('   latitude:', latitude);
+        console.log('   longitude:', longitude);
+        console.log('   photoUrl:', photoUrl?.substring(0, 50));
+
+        // STEP 3: Validate
+        if (!title || !story || !locationName || !latitude || !longitude) {
+            this.hideLoadingOverlay();
+            this.showToast('❌ Please fill all required fields');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create & Generate QR Tag';
+            }
+            return;
+        }
+
+        // STEP 4: Create dropData object
         const dropData = {
-            photoUrl: photoUrl,  // Already validated/uploaded
-            title: form.querySelector('[name="title"]')?.value?.trim() || '',
-            story: form.querySelector('[name="story"]')?.value?.trim() || '',
-            materials: form.querySelector('[name="materials"]')?.value?.trim() || '',
-            locationType: form.querySelector('[name="locationType"]')?.value || 'other',
-            locationName: form.querySelector('[name="locationName"]')?.value?.trim() || '',
-            latitude: parseFloat(form.querySelector('[name="latitude"]')?.value) || 0,
-            longitude: parseFloat(form.querySelector('[name="longitude"]')?.value) || 0,
-            city: document.getElementById('geocodedCity')?.value || 'Unknown',
-            state: document.getElementById('geocodedState')?.value || 'Unknown',
+            title: title,
+            story: story,
+            photoUrl: photoUrl,
+            materials: materials,
+            locationType: locationType,
+            locationName: locationName,
+            latitude: latitude,
+            longitude: longitude,
+            city: document.getElementById('geocodedCity')?.value || '',
+            state: document.getElementById('geocodedState')?.value || '',
             zipCode: document.getElementById('geocodedZip')?.value || '',
-            country: document.getElementById('geocodedCountry')?.value || 'US',
-            artistId: appState.currentUser.id,
-            artistName: appState.currentUser.name
+            country: document.getElementById('geocodedCountry')?.value || 'US'
         };
-        console.log('🔍 FORM VALUES CHECK:');
-        console.log('  title from form:', form.querySelector('[name="title"]')?.value);
-        console.log('  story from form:', form.querySelector('[name="story"]')?.value);
-        console.log('  latitude from form:', form.querySelector('[name="latitude"]')?.value);
-        console.log('  longitude from form:', form.querySelector('[name="longitude"]')?.value);
-        console.log('  locationName from form:', form.querySelector('[name="locationName"]')?.value);
-        
-        console.log('📦 After collection, dropData is:');
-        console.log('  dropData.title:', dropData.title);
-        console.log('  dropData.story:', dropData.story);
-        console.log('  dropData.latitude:', dropData.latitude);
-        console.log('  dropData.longitude:', dropData.longitude);
-        console.log('  dropData.locationName:', dropData.locationName);
 
-        // STEP 3: Validate required fields
-        if (!dropData.title || !dropData.story) {
-            this.showToast('❌ Please fill in title and story');
-            this.hideLoadingOverlay();
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Create & Generate QR Tag';
-            }
-            return;
-        }
+        console.log('📦 Final dropData:', dropData);
 
-        if (!dropData.locationName) {
-            this.showToast('❌ Please set location name or coordinates');
-            this.hideLoadingOverlay();
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Create & Generate QR Tag';
-            }
-            return;
-        }
-
-        if (dropData.latitude === 0 || dropData.longitude === 0) {
-            this.showToast('❌ Please set location coordinates');
-            this.hideLoadingOverlay();
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Create & Generate QR Tag';
-            }
-            return;
-        }
-
-        console.log('📦 Drop data prepared:', dropData);
-
-        // STEP 4: Create art drop in Firebase
+        // STEP 5: Save to Firebase
         const artDropRef = await createArtDropInFirebase(dropData);
-        
-        console.log('✅ Art drop created with ID:', artDropRef.id);
+        console.log('✅ Created:', artDropRef.id);
 
-        // STEP 5: Add to local cache
-        const newDrop = {
+        // STEP 6: Update local cache
+        appState.artDrops.unshift({
             id: artDropRef.id,
             ...dropData,
             status: 'active',
@@ -3920,26 +3818,19 @@ async handleArtistLogin(e) {
             totalDonations: 0,
             findEvents: [],
             dateCreated: new Date().toISOString()
-        };
-        
-        appState.artDrops.unshift(newDrop);
-        
-        if (appState.currentUser) {
-            appState.currentUser.activeDrops = (appState.currentUser.activeDrops || 0) + 1;
-        }
+        });
 
         this.hideLoadingOverlay();
-        this.showToast('✅ Art drop created successfully!');
+        this.showToast('✅ Art drop created!');
 
-        // STEP 6: Navigate to QR code generator
         setTimeout(() => {
             this.showPage('qr-tag-generator', { dropId: artDropRef.id });
         }, 1000);
 
     } catch (error) {
-        console.error('❌ Error creating art drop:', error);
+        console.error('❌ Error:', error);
         this.hideLoadingOverlay();
-        this.showToast('Failed to create drop: ' + error.message);
+        this.showToast('Error: ' + error.message);
         
         const submitBtn = e.target.querySelector('button[type="submit"]');
         if (submitBtn) {
