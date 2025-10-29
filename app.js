@@ -249,6 +249,11 @@ async function createArtDropInFirebase(dropData) {
             throw new Error('User must be logged in');
         }
 
+        // ← ADD THIS VALIDATION
+        if (!dropData.title || !dropData.story || !dropData.photoUrl) {
+            throw new Error('Missing required fields: title, story, or photoUrl');
+        }
+
         console.log('💾 Creating art drop in Firestore...');
 
         const artDropData = {
@@ -256,23 +261,23 @@ async function createArtDropInFirebase(dropData) {
             artistId: auth.currentUser.uid,
             artistName: dropData.artistName || appState.currentUser?.name || 'Anonymous',
             
-            // Art
-            title: dropData.title,
-            story: dropData.story,
-            photoUrl: dropData.photoUrl,
+            // Art - ensure no undefined values
+            title: dropData.title || 'Untitled',  // ← Add fallback
+            story: dropData.story || 'No story',  // ← Add fallback
+            photoUrl: dropData.photoUrl || '',    // ← Add fallback
             materials: dropData.materials || '',
             
             // Location
-            locationName: dropData.locationName,
-            latitude: dropData.latitude,
-            longitude: dropData.longitude,
-            locationType: dropData.locationType,
+            locationName: dropData.locationName || 'Unknown Location',  // ← Add fallback
+            latitude: dropData.latitude || 0,  // ← Add fallback
+            longitude: dropData.longitude || 0,  // ← Add fallback
+            locationType: dropData.locationType || 'other',
             
             // Geocoded data
-            city: dropData.city,
-            state: dropData.state,
-            zipCode: dropData.zipCode,
-            country: dropData.country,
+            city: dropData.city || '',
+            state: dropData.state || '',
+            zipCode: dropData.zipCode || '',
+            country: dropData.country || 'US',
             
             // Status
             status: 'active',
@@ -283,6 +288,8 @@ async function createArtDropInFirebase(dropData) {
             // Timestamp
             dateCreated: serverTimestamp()
         };
+
+        console.log('📦 Final artDropData:', artDropData);
 
         const artDropRef = await addDoc(collection(db, 'artDrops'), artDropData);
         console.log('✅ Art drop created:', artDropRef.id);
