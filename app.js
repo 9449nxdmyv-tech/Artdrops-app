@@ -3808,7 +3808,7 @@ async handleArtistLogin(e) {
             this.showLoadingOverlay('Uploading photo...');
             
             try {
-                photoUrl = await uploadPhotoToStorage(uploadInput.files);
+                photoUrl = await uploadPhotoToStorage(uploadInput.files[0]);
                 console.log('✅ Photo uploaded:', photoUrl);
             } catch (error) {
                 console.error('❌ Photo upload failed:', error);
