@@ -8,7 +8,7 @@ import {
     uploadBytes, 
     getDownloadURL 
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
-import { storage } from './firebase-config.js';
+import { storage } from './services/firebase-config.js';
 
 export const storageService = {
     /**
