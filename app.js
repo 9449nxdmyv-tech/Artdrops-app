@@ -198,30 +198,36 @@ async function getFirebaseArtists() {
 
 async function uploadPhotoToStorage(file) {
     try {
-        // Validate file
-        if (!file.type.match('image/(jpeg|png|gif|webp)')) {
+        // Validate file exists
+        if (!file) {
+            throw new Error('No file provided');
+        }
+        
+        // Validate file type
+        if (!file.type || !file.type.match(/image\/(jpeg|png|gif|webp)/)) {
             throw new Error('Please upload a valid image file (JPG, PNG, GIF, or WebP)');
         }
         
+        // Validate file size (5MB max)
         if (file.size > 5 * 1024 * 1024) {
             throw new Error('File size must be less than 5MB');
         }
-        
+
         const timestamp = Date.now();
         const fileName = `${timestamp}_${file.name}`;
-        const storageRef = ref(storage, `profiles/${auth.currentUser.uid}/${fileName}`);
-        
+        const storageRef = ref(storage, `artDrops/${auth.currentUser.uid}/${fileName}`);
+
         // Upload file
         await uploadBytes(storageRef, file);
-        
+
         // Get download URL
         const downloadURL = await getDownloadURL(storageRef);
+        console.log('✅ Photo uploaded:', downloadURL);
         
-        console.log("✅ Photo uploaded successfully:", downloadURL);
         return downloadURL;
-        
+
     } catch (error) {
-        console.error("❌ Error uploading photo:", error);
+        console.error('❌ Error uploading photo:', error);
         throw error;
     }
 }
@@ -230,122 +236,51 @@ async function createArtDropInFirebase(dropData) {
     try {
         const auth = getAuth();
         if (!auth.currentUser) {
-            throw new Error('User must be logged in to create art drops');
+            throw new Error('User must be logged in');
         }
 
-        // Validate required fields
-        if (!dropData.photoUrl) {
-            throw new Error('Photo URL is required');
-        }
-        if (!dropData.title) {
-            throw new Error('Title is required');
-        }
-        if (!dropData.story) {
-            throw new Error('Story is required');
-        }
-        if (!dropData.locationName) {
-            throw new Error('Location name is required');
-        }
-        if (!dropData.latitude || !dropData.longitude) {
-            throw new Error('Coordinates are required');
-        }
+        console.log('💾 Creating art drop in Firestore...');
 
-        console.log('📦 Creating art drop with data:', dropData);
-
-        // Create COMPLETE art drop document with ALL required fields
         const artDropData = {
-            // Artist info (CRITICAL)
+            // Artist
             artistId: auth.currentUser.uid,
-            artistName: appState.currentUser?.name || 'Anonymous Artist',
+            artistName: dropData.artistName || appState.currentUser?.name || 'Anonymous',
             
-            // Art details
-            title: dropData.title.trim(),
-            story: dropData.story.trim(),
+            // Art
+            title: dropData.title,
+            story: dropData.story,
             photoUrl: dropData.photoUrl,
             materials: dropData.materials || '',
             
-            // Location info
-            locationName: dropData.locationName.trim(),
-            latitude: parseFloat(dropData.latitude),
-            longitude: parseFloat(dropData.longitude),
-            locationType: dropData.locationType || 'outdoor',
-            city: dropData.city?.trim() || 'Unknown',
-            state: dropData.state?.trim() || 'Unknown',
+            // Location
+            locationName: dropData.locationName,
+            latitude: dropData.latitude,
+            longitude: dropData.longitude,
+            locationType: dropData.locationType,
             
-            // Status and counters
+            // Geocoded data
+            city: dropData.city,
+            state: dropData.state,
+            zipCode: dropData.zipCode,
+            country: dropData.country,
+            
+            // Status
             status: 'active',
             foundCount: 0,
             totalDonations: 0,
-            viewCount: 0,
-            
-            // Events
             findEvents: [],
             
-            // Timestamps
+            // Timestamp
             dateCreated: serverTimestamp()
         };
 
-        console.log('💾 Saving to Firestore:', artDropData);
-
-        // Add art drop to Firestore
         const artDropRef = await addDoc(collection(db, 'artDrops'), artDropData);
-        console.log('✅ Art drop created with ID:', artDropRef.id);
-
-        // Update artist's active drops count
-        try {
-            const userRef = doc(db, 'users', auth.currentUser.uid);
-            await updateDoc(userRef, {
-                activeDrops: increment(1)
-            });
-            console.log('✅ Artist active drops count updated');
-        } catch (error) {
-            console.warn('Could not update artist active drops:', error);
-        }
-
-        // Check if location already exists and create/update
-        try {
-            const locationQuery = query(
-                collection(db, 'locations'),
-                where('name', '==', artDropData.locationName),
-                where('latitude', '==', artDropData.latitude),
-                where('longitude', '==', artDropData.longitude)
-            );
-            
-            const locationSnap = await getDocs(locationQuery);
-            
-            if (locationSnap.empty) {
-                // Location doesn't exist - create it
-                const locationData = {
-                    name: artDropData.locationName,
-                    city: artDropData.city,
-                    state: artDropData.state,
-                    latitude: artDropData.latitude,
-                    longitude: artDropData.longitude,
-                    locationType: artDropData.locationType,
-                    locationPhoto: artDropData.photoUrl,
-                    activeDropCount: 1,
-                    followerCount: 0,
-                    dateAdded: serverTimestamp()
-                };
-
-                const locationRef = await addDoc(collection(db, 'locations'), locationData);
-                console.log('✅ New location created:', locationRef.id);
-            } else {
-                // Location exists - increment drop count
-                const existingLocation = locationSnap.docs;
-                await updateDoc(existingLocation.ref, {
-                    activeDropCount: increment(1)
-                });
-                console.log('✅ Updated existing location drop count');
-            }
-        } catch (error) {
-            console.warn('Could not create/update location:', error);
-        }
+        console.log('✅ Art drop created:', artDropRef.id);
 
         return artDropRef;
 
     } catch (error) {
-        console.error('❌ Error in createArtDropInFirebase:', error);
+        console.error('❌ Error creating art drop:', error);
         throw error;
     }
 }
@@ -1145,6 +1080,35 @@ const appState = {
         this.showToast('Failed to update follow status');
     }
 },
+async reverseGeocode(lat, lng) {
+    try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`;
+        
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'ArtDrops App'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data && data.address) {
+            const addr = data.address;
+            return {
+                formattedAddress: data.display_name,
+                city: addr.city || addr.town || addr.village || '',
+                state: addr.state || '',
+                zipCode: addr.postcode || '',
+                country: addr.country_code?.toUpperCase() || ''
+            };
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Geocoding error:', error);
+        return null;
+    }
+},            
 generateQRCode(dropId) {
     try {
         const qrcodeElement = document.getElementById('qrcode');
@@ -2045,11 +2009,40 @@ updateMapMarkers() {
             <h1>Drop New Art</h1>
             
             <form onsubmit="app.handleDropNewArt(event)">
-                <!-- Photo -->
+                <!-- Photo: Choose URL or Upload -->
                 <div class="form-group">
                     <label>Photo *</label>
-                    <input type="file" id="dropPhotoInput" accept="image/*" class="form-control" required>
-                    <small>Maximum 5MB - JPG, PNG, or GIF</small>
+                    
+                    <!-- Tab selection -->
+                    <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                        <button type="button" class="btn btn-outline" id="urlTabBtn" 
+                                onclick="app.switchPhotoTab('url')" 
+                                style="flex: 1; min-height: 40px;">
+                            URL
+                        </button>
+                        <button type="button" class="btn btn-outline" id="uploadTabBtn" 
+                                onclick="app.switchPhotoTab('upload')" 
+                                style="flex: 1; min-height: 40px;">
+                            Upload
+                        </button>
+                    </div>
+                    
+                    <!-- URL Input (default) -->
+                    <div id="photoUrlTab">
+                        <input type="url" id="dropPhotoUrl" name="photoUrl" class="form-control" 
+                               placeholder="https://example.com/image.jpg">
+                        <small style="display: block; margin-top: 0.5rem; color: var(--text-gray);">
+                            Paste a direct image URL (JPG, PNG, GIF)
+                        </small>
+                    </div>
+                    
+                    <!-- File Upload (hidden by default) -->
+                    <div id="photoUploadTab" style="display: none;">
+                        <input type="file" id="dropPhotoInput" accept="image/*" class="form-control">
+                        <small style="display: block; margin-top: 0.5rem; color: var(--text-gray);">
+                            Maximum 5MB - JPG, PNG, or GIF
+                        </small>
+                    </div>
                 </div>
 
                 <!-- Title -->
@@ -2071,52 +2064,57 @@ updateMapMarkers() {
                     <label>Location Type *</label>
                     <select name="locationType" class="form-control" required>
                         <option value="">Select type</option>
+                        <option value="coffee-shop">Coffee Shop</option>
+                        <option value="bookstore">Bookstore</option>
                         <option value="park">Park</option>
                         <option value="trail">Trail</option>
-                        <option value="cafe">Cafe</option>
-                        <option value="bookstore">Bookstore</option>
+                        <option value="plaza">Plaza</option>
+                        <option value="mall">Mall</option>
+                        <option value="library">Library</option>
                         <option value="outdoor">Outdoor</option>
                         <option value="other">Other</option>
                     </select>
                 </div>
 
-                <!-- Location Name -->
+                <!-- Location Name (optional - auto-populated from geocoding) -->
                 <div class="form-group">
-                    <label>Location Name *</label>
-                    <input type="text" name="locationName" class="form-control" required 
-                           placeholder="e.g., Central Park Bench #42">
-                </div>
-
-                <!-- City & State -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                    <div class="form-group">
-                        <label>City</label>
-                        <input type="text" name="city" class="form-control" placeholder="City">
-                    </div>
-                    <div class="form-group">
-                        <label>State</label>
-                        <input type="text" name="state" class="form-control" placeholder="State">
-                    </div>
+                    <label>Location Name (optional)</label>
+                    <input type="text" name="locationName" class="form-control" 
+                           placeholder="e.g., Central Perk Cafe - will auto-populate from coordinates">
+                    <small style="display: block; margin-top: 0.5rem; color: var(--text-gray);">
+                        Leave blank to use "City, State Zip"
+                    </small>
                 </div>
 
                 <!-- Coordinates -->
                 <div class="form-group">
-                    <label>Coordinates *</label>
+                    <label>Location *</label>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                        <input type="number" name="latitude" step="any" class="form-control" 
-                               placeholder="Latitude" required>
-                        <input type="number" name="longitude" step="any" class="form-control" 
-                               placeholder="Longitude" required>
+                        <div>
+                            <input type="number" name="latitude" step="any" class="form-control" 
+                                   placeholder="Latitude" required>
+                        </div>
+                        <div>
+                            <input type="number" name="longitude" step="any" class="form-control" 
+                                   placeholder="Longitude" required>
+                        </div>
                     </div>
+                    
                     <button type="button" class="btn btn-secondary" onclick="app.useCurrentLocation()" 
-                            style="width: 100%;">
-                        Use Current Location
+                            style="width: 100%; min-height: 48px;">
+                        📍 Use My Current Location
                     </button>
+                </div>
+
+                <!-- Location Details (auto-populated) -->
+                <div id="locationDetails" style="display: none; background: var(--light-gray); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <strong>Location Details:</strong>
+                    <div id="locationAddress" style="margin-top: 0.5rem; font-size: 0.9rem;"></div>
                 </div>
 
                 <!-- Map -->
                 <div class="form-group">
-                    <div id="dropLocationMap" style="width: 100%; height: 300px; border-radius: 8px;"></div>
+                    <div id="dropLocationMap" style="width: 100%; height: 300px; border-radius: 8px; border: 1px solid var(--border-gray);"></div>
                 </div>
 
                 <!-- Materials -->
@@ -2126,8 +2124,14 @@ updateMapMarkers() {
                            placeholder="e.g., Stone, Acrylic Paint">
                 </div>
 
+                <!-- Hidden fields for geocoded data -->
+                <input type="hidden" name="city" id="geocodedCity">
+                <input type="hidden" name="state" id="geocodedState">
+                <input type="hidden" name="zipCode" id="geocodedZip">
+                <input type="hidden" name="country" id="geocodedCountry">
+
                 <!-- Submit -->
-                <button type="submit" class="btn btn-primary btn-large" style="width: 100%;">
+                <button type="submit" class="btn btn-primary btn-large" style="width: 100%; min-height: 56px;">
                     Create & Generate QR Tag
                 </button>
             </form>
@@ -3657,50 +3661,41 @@ async handleArtistLogin(e) {
             return;
         }
 
-        console.log('🎨 Starting art drop creation...');
-
         const submitBtn = e.target.querySelector('button[type="submit"]');
         if (submitBtn) {
             submitBtn.disabled = true;
             submitBtn.textContent = 'Creating...';
         }
 
-        // Get form elements
         const form = e.target;
-        const photoInput = document.getElementById('dropPhotoInput');
         
-        // STEP 1: Validate photo
-        if (!photoInput || !photoInput.files || photoInput.files.length === 0) {
-            this.showToast('❌ Please select a photo for your art drop');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Create & Generate QR Tag';
-            }
-            return;
-        }
-
-        // Validate file size (max 5MB)
-        const maxSize = 5 * 1024 * 1024; // 5MB
-        if (photoInput.files.size > maxSize) {
-            this.showToast('❌ Photo must be less than 5MB');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Create & Generate QR Tag';
-            }
-            return;
-        }
-
-        // STEP 2: Upload photo
-        this.showLoadingOverlay('Uploading photo...');
+        // Get photo - either from URL or upload
+        let photoUrl = '';
+        const urlInput = document.getElementById('dropPhotoUrl');
+        const uploadInput = document.getElementById('dropPhotoInput');
         
-        let photoUrl;
-        try {
-            photoUrl = await uploadPhotoToStorage(photoInput.files);
-            console.log('✅ Photo uploaded:', photoUrl);
-        } catch (error) {
-            console.error('❌ Photo upload failed:', error);
-            this.hideLoadingOverlay();
-            this.showToast('Photo upload failed: ' + error.message);
+        if (urlInput && urlInput.value) {
+            // Using URL
+            photoUrl = urlInput.value;
+            console.log('✅ Using photo URL:', photoUrl);
+        } else if (uploadInput && uploadInput.files && uploadInput.files.length > 0) {
+            // Upload file to Firebase Storage
+            this.showLoadingOverlay('Uploading photo...');
+            try {
+                photoUrl = await uploadPhotoToStorage(uploadInput.files);
+                console.log('✅ Photo uploaded:', photoUrl);
+            } catch (error) {
+                console.error('❌ Photo upload failed:', error);
+                this.hideLoadingOverlay();
+                this.showToast('Photo upload failed: ' + error.message);
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Create & Generate QR Tag';
+                }
+                return;
+            }
+        } else {
+            this.showToast('❌ Please provide a photo URL or upload a file');
             if (submitBtn) {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Create & Generate QR Tag';
@@ -3708,34 +3703,38 @@ async handleArtistLogin(e) {
             return;
         }
 
-        // STEP 3: Collect ALL form data
+        this.showLoadingOverlay('Creating art drop...');
+
+        // Collect form data
         const dropData = {
-            // Photo
             photoUrl: photoUrl,
-            
-            // Art details
             title: form.querySelector('[name="title"]')?.value?.trim() || '',
             story: form.querySelector('[name="story"]')?.value?.trim() || '',
             materials: form.querySelector('[name="materials"]')?.value?.trim() || '',
             
-            // Location details
-            locationName: form.querySelector('[name="locationName"]')?.value?.trim() || '',
-            locationType: form.querySelector('[name="locationType"]')?.value || 'outdoor',
-            city: form.querySelector('[name="city"]')?.value?.trim() || 'Unknown',
-            state: form.querySelector('[name="state"]')?.value?.trim() || 'Unknown',
-            
-            // Coordinates
+            // Location
             latitude: parseFloat(form.querySelector('[name="latitude"]')?.value) || 0,
             longitude: parseFloat(form.querySelector('[name="longitude"]')?.value) || 0,
+            locationType: form.querySelector('[name="locationType"]')?.value || 'other',
             
-            // Artist info (will be added in createArtDropInFirebase)
+            // Geocoded location data
+            city: document.getElementById('geocodedCity')?.value || 'Unknown',
+            state: document.getElementById('geocodedState')?.value || 'Unknown',
+            zipCode: document.getElementById('geocodedZip')?.value || '',
+            country: document.getElementById('geocodedCountry')?.value || 'US',
+            
+            // Location name - use provided or fallback to "City, State Zip"
+            locationName: form.querySelector('[name="locationName"]')?.value?.trim() || 
+                         `${document.getElementById('geocodedCity')?.value || 'Unknown'}, ${document.getElementById('geocodedState')?.value || 'Unknown'} ${document.getElementById('geocodedZip')?.value || ''}`.trim(),
+            
+            // Artist info
             artistId: appState.currentUser.id,
             artistName: appState.currentUser.name
         };
 
-        // Validate required fields
-        if (!dropData.title) {
-            this.showToast('❌ Please enter a title');
+        // Validate
+        if (!dropData.title || !dropData.story) {
+            this.showToast('❌ Please fill in all required fields');
             this.hideLoadingOverlay();
             if (submitBtn) {
                 submitBtn.disabled = false;
@@ -3744,46 +3743,14 @@ async handleArtistLogin(e) {
             return;
         }
 
-        if (!dropData.story) {
-            this.showToast('❌ Please enter a story');
-            this.hideLoadingOverlay();
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Create & Generate QR Tag';
-            }
-            return;
-        }
+        console.log('📦 Creating art drop:', dropData);
 
-        if (!dropData.locationName) {
-            this.showToast('❌ Please enter a location name');
-            this.hideLoadingOverlay();
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Create & Generate QR Tag';
-            }
-            return;
-        }
-
-        if (dropData.latitude === 0 || dropData.longitude === 0) {
-            this.showToast('❌ Please set location coordinates');
-            this.hideLoadingOverlay();
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Create & Generate QR Tag';
-            }
-            return;
-        }
-
-        console.log('📦 Drop data prepared:', dropData);
-
-        // STEP 4: Create art drop in Firebase
-        this.showLoadingOverlay('Creating art drop...');
-
+        // Create in Firebase
         const artDropRef = await createArtDropInFirebase(dropData);
         
-        console.log('✅ Art drop created with ID:', artDropRef.id);
+        console.log('✅ Art drop created:', artDropRef.id);
 
-        // STEP 5: Add to local cache with the document ID
+        // Add to local cache
         const newDrop = {
             id: artDropRef.id,
             ...dropData,
@@ -3795,16 +3762,11 @@ async handleArtistLogin(e) {
         };
         
         appState.artDrops.unshift(newDrop);
-        
-        // Update user's active drops count in local state
-        if (appState.currentUser) {
-            appState.currentUser.activeDrops = (appState.currentUser.activeDrops || 0) + 1;
-        }
 
         this.hideLoadingOverlay();
         this.showToast('✅ Art drop created successfully!');
 
-        // STEP 6: Navigate to QR code generator
+        // Navigate to QR generator
         setTimeout(() => {
             this.showPage('qr-tag-generator', { dropId: artDropRef.id });
         }, 1000);
@@ -3941,69 +3903,68 @@ selectDonationAmount(amount) {
 
 useCurrentLocation() {
     if (!navigator.geolocation) {
-        this.showToast('Geolocation not supported. Please enter manually.');
+        this.showToast('Geolocation not supported');
         return;
     }
 
     this.showLoadingOverlay('Getting your location...');
 
     navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const lat = position.coords.latitude.toFixed(6);
-            const lon = position.coords.longitude.toFixed(6);
+        async (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
 
-            // Update form fields - make sure IDs match
+            // Update coordinate inputs
             const latInput = document.querySelector('[name="latitude"]');
             const lonInput = document.querySelector('[name="longitude"]');
+            
+            if (latInput) latInput.value = lat.toFixed(6);
+            if (lonInput) lonInput.value = lng.toFixed(6);
 
-            if (latInput) {
-                latInput.value = lat;
-                console.log('✅ Latitude field updated:', lat);
-            } else {
-                console.error('❌ Latitude input not found');
+            // Reverse geocode to get address details
+            const locationData = await this.reverseGeocode(lat, lng);
+            
+            if (locationData) {
+                // Update hidden fields
+                document.getElementById('geocodedCity').value = locationData.city;
+                document.getElementById('geocodedState').value = locationData.state;
+                document.getElementById('geocodedZip').value = locationData.zipCode;
+                document.getElementById('geocodedCountry').value = locationData.country;
+                
+                // If no location name provided, auto-fill with city, state, zip
+                const locationNameInput = document.querySelector('[name="locationName"]');
+                if (locationNameInput && !locationNameInput.value) {
+                    const autoName = `${locationData.city}, ${locationData.state} ${locationData.zipCode}`;
+                    locationNameInput.value = autoName;
+                    locationNameInput.placeholder = autoName;
+                }
+                
+                // Show location details
+                const detailsDiv = document.getElementById('locationDetails');
+                const addressDiv = document.getElementById('locationAddress');
+                if (detailsDiv && addressDiv) {
+                    addressDiv.innerHTML = `
+                        <div style="margin-bottom: 0.5rem;"><strong>Address:</strong> ${locationData.formattedAddress}</div>
+                        <div><strong>City:</strong> ${locationData.city}, ${locationData.state} ${locationData.zipCode}</div>
+                    `;
+                    detailsDiv.style.display = 'block';
+                }
+                
+                console.log('✅ Location geocoded:', locationData);
             }
 
-            if (lonInput) {
-                lonInput.value = lon;
-                console.log('✅ Longitude field updated:', lon);
-            } else {
-                console.error('❌ Longitude input not found');
+            // Update map
+            if (this.dropLocationMapInstance) {
+                this.updateDropLocationMap(lat, lng);
             }
-
-            // Update appState
-            appState.userLocation = {
-                latitude: parseFloat(lat),
-                longitude: parseFloat(lon)
-            };
 
             this.hideLoadingOverlay();
-            this.showToast('✅ Location captured!');
-
-            // Update map if it exists
-            const mapElement = document.getElementById('dropLocationMap');
-            if (mapElement && this.dropLocationMapInstance) {
-                this.updateDropLocationMap(parseFloat(lat), parseFloat(lon));
-            }
+            this.showToast('✅ Location captured & geocoded!');
         },
         (error) => {
             console.error('Geolocation error:', error);
             this.hideLoadingOverlay();
-            
-            let message = 'Unable to get location. Please enter manually.';
-            if (error.code === 1) {
-                message = 'Location permission denied. Please enable location access.';
-            } else if (error.code === 2) {
-                message = 'Location unavailable. Please enter manually.';
-            } else if (error.code === 3) {
-                message = 'Location request timeout. Please try again.';
-            }
-            
-            this.showToast(message);
-        },
-        {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
+            this.showToast('Unable to get location');
         }
     );
 },
