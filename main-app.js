@@ -2,7 +2,7 @@
 // MAIN APP - EXPANDED WITH ALL HANDLERS
 // ============================================
 
-import { auth, db, storage } from '/artdrops-app/services/firebase-config.js';
+import { auth, db, storage } from './services/firebase-config.js';
 import { authService } from './services/auth-service.js';
 import { dropsService } from './services/drops-service.js';
 import { locationsService } from './services/locations-service.js';
@@ -10,7 +10,7 @@ import { storageService } from './services/storage-service.js';
 import { donationsService } from './services/donations-service.js';
 import { state } from './modules/state-manager.js';
 import { uiModule } from './modules/ui-module.js';
-import { utils } from './modules/utils.js';
+import { utils } from './modules/utils.js';    
 
 // Import all page modules
 import { authPages } from './pages/pages-auth.js';
