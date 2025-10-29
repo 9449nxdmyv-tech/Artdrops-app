@@ -2,6 +2,7 @@
 // STATE MANAGER
 // ============================================
 
+
 class StateManager {
     constructor() {
         this.state = {
