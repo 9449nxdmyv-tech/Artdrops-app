@@ -2,15 +2,16 @@
 // MAIN APP - Entry Point
 // ============================================
 // Import all services and modules
+// Import all services and modules
 import { auth, db, storage } from './services/firebase-config.js';
 import { authService } from './services/auth-service.js';
-import { dropsService } from './services/drops-service.js'; 
+import { dropsService } from './services/drops-service.js';
 import { locationsService } from './services/locations-service.js';
 import { storageService } from './services/storage-service.js';
 import { donationsService } from './services/donations-service.js';
-import { state } from './modules/state-manager.js';  
-import { uiModule } from './modules/ui-module.js';  
-import { utils } from './modules/utils.js';          
+import { state } from './modules/state-manager.js';
+import { uiModule } from './modules/ui-module.js';
+import { utils } from './modules/utils.js';    
 
 
 // ============================================
