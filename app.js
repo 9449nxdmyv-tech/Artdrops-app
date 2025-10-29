@@ -369,8 +369,8 @@ async function loadPopularLocationsFromFirebase() {
     } catch (error) {
         console.error("❌ Error loading popular locations:", error);
     }
-},
-async reverseGeocode(lat, lng) {
+}
+async reverseGeocode(lat, lng) { 
     try {
         const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`;
         
@@ -398,7 +398,7 @@ async reverseGeocode(lat, lng) {
         console.error('Geocoding error:', error);
         return null;
     }
-},
+}
 
 
 const appState = {
