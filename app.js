@@ -152,6 +152,24 @@ async function getFirebaseLocations() {
         return [];
     }
 }
+async function getFirebaseArtists() {
+    try {
+        const q = query(collection(db, 'users'), where('userType', '==', 'artist'));
+        const snapshot = await getDocs(q);
+        const artists = [];
+        snapshot.forEach((docSnap) => {
+            artists.push({
+                id: docSnap.id,
+                ...docSnap.data()
+            });
+        });
+        console.log("✅ Loaded", artists.length, "artists from Firebase");
+        return artists;
+    } catch (error) {
+        console.error("❌ Error loading artists:", error);
+        return [];
+    }
+}
 
 async function uploadPhotoToStorage(file) {
     try {
@@ -258,6 +276,28 @@ async function loadLocationsFromFirebase() {
     } catch (error) {
         console.error("❌ Error loading locations:", error);
         console.log("Using demo data from appState");
+    }
+}
+
+async function loadArtistsFromFirebase() {
+    try {
+        console.log("🔄 Loading artists from Firebase...");
+        const artists = await getFirebaseArtists();
+        
+        if (artists && artists.length > 0) {
+            // Merge with demo artists (keep both)
+            const demoArtists = appState.artists.filter(a => typeof a.id === 'number');
+            appState.artists = [...demoArtists, ...artists];
+            console.log("✅ Loaded", artists.length, "artists from Firebase");
+            return artists;
+        } else {
+            console.log("⚠️ No artists found in Firebase, using demo data");
+            return appState.artists;
+        }
+    } catch (error) {
+        console.error("❌ Error loading artists:", error);
+        console.log("Using demo data from appState");
+        return appState.artists;
     }
 }
 
