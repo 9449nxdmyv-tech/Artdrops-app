@@ -198,31 +198,43 @@ async function getFirebaseArtists() {
 
 async function uploadPhotoToStorage(file) {
     try {
-        // Validate file exists
+        // CRITICAL: Validate file exists and is a File object
         if (!file) {
             throw new Error('No file provided');
         }
         
+        if (!(file instanceof File) && !(file instanceof Blob)) {
+            throw new Error('Invalid file type - must be a File object');
+        }
+        
         // Validate file type
-        if (!file.type || !file.type.match(/image\/(jpeg|png|gif|webp)/)) {
-            throw new Error('Please upload a valid image file (JPG, PNG, GIF, or WebP)');
+        if (!file.type) {
+            throw new Error('File type could not be determined');
+        }
+        
+        if (!file.type.match(/image\/(jpeg|jpg|png|gif|webp)/i)) {
+            throw new Error(`Invalid image type: ${file.type}. Please upload JPG, PNG, GIF, or WebP`);
         }
         
         // Validate file size (5MB max)
-        if (file.size > 5 * 1024 * 1024) {
+        const maxSize = 5 * 1024 * 1024;
+        if (file.size > maxSize) {
             throw new Error('File size must be less than 5MB');
         }
+
+        console.log('📤 Uploading file:', file.name, 'Size:', (file.size / 1024).toFixed(2) + 'KB');
 
         const timestamp = Date.now();
         const fileName = `${timestamp}_${file.name}`;
         const storageRef = ref(storage, `artDrops/${auth.currentUser.uid}/${fileName}`);
 
         // Upload file
-        await uploadBytes(storageRef, file);
+        const snapshot = await uploadBytes(storageRef, file);
+        console.log('✅ File uploaded to Storage');
 
         // Get download URL
         const downloadURL = await getDownloadURL(storageRef);
-        console.log('✅ Photo uploaded:', downloadURL);
+        console.log('✅ Download URL obtained:', downloadURL);
         
         return downloadURL;
 
@@ -3663,26 +3675,45 @@ async handleArtistLogin(e) {
             return;
         }
 
+        console.log('🎨 Starting art drop creation...');
+
         const submitBtn = e.target.querySelector('button[type="submit"]');
         if (submitBtn) {
             submitBtn.disabled = true;
             submitBtn.textContent = 'Creating...';
         }
 
+        // Get form elements
         const form = e.target;
         
-        // Get photo - either from URL or upload
+        // STEP 1: Get photo - EITHER from URL or upload
         let photoUrl = '';
+        
+        // Check URL input first
         const urlInput = document.getElementById('dropPhotoUrl');
         const uploadInput = document.getElementById('dropPhotoInput');
         
         if (urlInput && urlInput.value) {
-            // Using URL
+            // Using URL - no upload needed
             photoUrl = urlInput.value;
             console.log('✅ Using photo URL:', photoUrl);
-        } else if (uploadInput && uploadInput.files && uploadInput.files.length > 0) {
-            // Upload file to Firebase Storage
+            
+            // Validate it's a valid URL
+            try {
+                new URL(photoUrl);
+            } catch (e) {
+                this.showToast('❌ Please enter a valid image URL');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Create & Generate QR Tag';
+                }
+                return;
+            }
+        } 
+        else if (uploadInput && uploadInput.files && uploadInput.files.length > 0) {
+            // Using file upload
             this.showLoadingOverlay('Uploading photo...');
+            
             try {
                 photoUrl = await uploadPhotoToStorage(uploadInput.files);
                 console.log('✅ Photo uploaded:', photoUrl);
@@ -3696,7 +3727,8 @@ async handleArtistLogin(e) {
                 }
                 return;
             }
-        } else {
+        } 
+        else {
             this.showToast('❌ Please provide a photo URL or upload a file');
             if (submitBtn) {
                 submitBtn.disabled = false;
@@ -3707,36 +3739,27 @@ async handleArtistLogin(e) {
 
         this.showLoadingOverlay('Creating art drop...');
 
-        // Collect form data
+        // STEP 2: Collect form data
         const dropData = {
-            photoUrl: photoUrl,
+            photoUrl: photoUrl,  // Already validated/uploaded
             title: form.querySelector('[name="title"]')?.value?.trim() || '',
             story: form.querySelector('[name="story"]')?.value?.trim() || '',
             materials: form.querySelector('[name="materials"]')?.value?.trim() || '',
-            
-            // Location
+            locationType: form.querySelector('[name="locationType"]')?.value || 'other',
+            locationName: form.querySelector('[name="locationName"]')?.value?.trim() || '',
             latitude: parseFloat(form.querySelector('[name="latitude"]')?.value) || 0,
             longitude: parseFloat(form.querySelector('[name="longitude"]')?.value) || 0,
-            locationType: form.querySelector('[name="locationType"]')?.value || 'other',
-            
-            // Geocoded location data
             city: document.getElementById('geocodedCity')?.value || 'Unknown',
             state: document.getElementById('geocodedState')?.value || 'Unknown',
             zipCode: document.getElementById('geocodedZip')?.value || '',
             country: document.getElementById('geocodedCountry')?.value || 'US',
-            
-            // Location name - use provided or fallback to "City, State Zip"
-            locationName: form.querySelector('[name="locationName"]')?.value?.trim() || 
-                         `${document.getElementById('geocodedCity')?.value || 'Unknown'}, ${document.getElementById('geocodedState')?.value || 'Unknown'} ${document.getElementById('geocodedZip')?.value || ''}`.trim(),
-            
-            // Artist info
             artistId: appState.currentUser.id,
             artistName: appState.currentUser.name
         };
 
-        // Validate
+        // STEP 3: Validate required fields
         if (!dropData.title || !dropData.story) {
-            this.showToast('❌ Please fill in all required fields');
+            this.showToast('❌ Please fill in title and story');
             this.hideLoadingOverlay();
             if (submitBtn) {
                 submitBtn.disabled = false;
@@ -3745,14 +3768,34 @@ async handleArtistLogin(e) {
             return;
         }
 
-        console.log('📦 Creating art drop:', dropData);
+        if (!dropData.locationName) {
+            this.showToast('❌ Please set location name or coordinates');
+            this.hideLoadingOverlay();
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create & Generate QR Tag';
+            }
+            return;
+        }
 
-        // Create in Firebase
+        if (dropData.latitude === 0 || dropData.longitude === 0) {
+            this.showToast('❌ Please set location coordinates');
+            this.hideLoadingOverlay();
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create & Generate QR Tag';
+            }
+            return;
+        }
+
+        console.log('📦 Drop data prepared:', dropData);
+
+        // STEP 4: Create art drop in Firebase
         const artDropRef = await createArtDropInFirebase(dropData);
         
-        console.log('✅ Art drop created:', artDropRef.id);
+        console.log('✅ Art drop created with ID:', artDropRef.id);
 
-        // Add to local cache
+        // STEP 5: Add to local cache
         const newDrop = {
             id: artDropRef.id,
             ...dropData,
@@ -3764,11 +3807,15 @@ async handleArtistLogin(e) {
         };
         
         appState.artDrops.unshift(newDrop);
+        
+        if (appState.currentUser) {
+            appState.currentUser.activeDrops = (appState.currentUser.activeDrops || 0) + 1;
+        }
 
         this.hideLoadingOverlay();
         this.showToast('✅ Art drop created successfully!');
 
-        // Navigate to QR generator
+        // STEP 6: Navigate to QR code generator
         setTimeout(() => {
             this.showPage('qr-tag-generator', { dropId: artDropRef.id });
         }, 1000);
