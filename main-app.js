@@ -4,15 +4,15 @@
 
 
 // Import all services and modules
-import { auth, db, storage } from './firebase-config.js';
-import { authService } from './auth-service.js';
-import { dropsService } from './drops-service.js';
-import { locationsService } from './locations-service.js';
-import { storageService } from './storage-service.js';
-import { donationsService } from './donations-service.js';
-import { state } from './state-manager.js';
-import { uiModule } from './ui-module.js';
-import { utils } from './utils.js';
+import { auth, db, storage } from '/services/firebase-config.js';
+import { authService } from 'services/auth-service.js';
+import { dropsService } from 'services/rops-service.js';
+import { locationsService } from 'services/locations-service.js';
+import { storageService } from 'services/storage-service.js';
+import { donationsService } from 'services/donations-service.js';
+import { state } from '/module/state-manager.js';
+import { uiModule } from '/module/ui-module.js';
+import { utils } from '/module/utils.js';
 
 // ============================================
 // MAIN APP OBJECT
