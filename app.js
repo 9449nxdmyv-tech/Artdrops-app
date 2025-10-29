@@ -1834,20 +1834,20 @@ renderQRTagGenerator(dropId) {
             },
             
             renderArtStory(dropId) {
-    // 1. Defensive lookup of the art drop
+    // 1. Defensive lookup
     const drop = appState.artDrops.find(d => String(d.id) === String(dropId));
     if (!drop) {
         return `<div class="container"><p>Error: Art drop not found.</p></div>`;
     }
 
-    // 2. Defensive lookup of the artist (cast IDs to string for matching)
+    // 2. Defensive artist lookup
     const artist = appState.artists.find(a => String(a.id) === String(drop.artistId));
     if (!artist) {
         console.error('Artist not found for drop:', drop);
         return `<div class="container"><p>Error: Artist not found for this art drop.</p></div>`;
     }
 
-    // 3. Look up location (optional)
+    // 3. Location lookup
     const location = appState.locations.find(
         l => l.name === drop.locationName || String(l.id) === String(drop.locationId)
     );
@@ -1868,150 +1868,110 @@ renderQRTagGenerator(dropId) {
             f.targetId === location.id
         ) : false;
 
-    // 6. Calculate distance if user location available
-    let distanceInfo = '';
-    if (appState.userLocation) {
-        const distance = this.calculateDistance(
-            appState.userLocation.latitude,
-            appState.userLocation.longitude,
-            drop.latitude,
-            drop.longitude
-        );
-        distanceInfo = `<p style="font-size: 0.9rem; margin-bottom: 1rem;"><strong>Distance:</strong> ${this.formatDistance(distance)}</p>`;
-    }
-
-    // 7. Get related drops from same artist
-    const relatedDrops = appState.artDrops.filter(d => 
-        String(d.artistId) === String(drop.artistId) && 
-        String(d.id) !== String(drop.id)
-    ).slice(0, 3);
-
-    // 8. Render related drops using renderDropCard
-    const relatedDropsHTML = relatedDrops.length > 0 ? `
-        <div style="margin-top: 5rem;">
-            <h2 style="margin-bottom: 2rem; text-align: center;">More from ${drop.artistName}</h2>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem;">
-                ${relatedDrops.map(relatedDrop => this.renderDropCard(relatedDrop)).join('')}
-            </div>
-        </div>
-    ` : '';
-
-    // 9. Generate complete HTML
     return `
-        <div class="container" style="max-width: 1200px">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start; margin-bottom: 3rem;">
+        <div class="container">
+            <div class="art-detail-grid" style="align-items: start;">
                 <div style="position: relative;">
-                    <img src="${drop.photoUrl}" alt="${drop.title}" style="width: 100%; border-radius: 12px; display: block;" />
+                    <img src="${drop.photoUrl}" alt="${drop.title}" class="art-image-large" style="display: block;">
                 </div>
-                <div>
-                    <span class="badge" style="display: inline-block; padding: 6px 14px; background: ${drop.status === 'active' ? 'var(--primary-black)' : 'var(--sage-green)'}; color: white; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin-bottom: 1rem;">
-                        ${drop.status === 'active' ? '✓ Active' : '✓ Found'}
-                    </span>
-                    <h1 style="margin: 1rem 0 0.5rem; font-size: 2.2rem; line-height: 1.2;">${drop.title}</h1>
+                <div class="art-info">
+                    <span class="badge badge-${drop.status === 'active' ? 'active' : 'found'}">${drop.status === 'active' ? 'Active' : 'Found'}</span>
+                    <h1 style="margin: 1rem 0;">${drop.title}</h1>
                     
-                    <!-- Artist Section -->
-                    <div style="display: flex; align-items: center; gap: 1.5rem; margin: 2rem 0; padding: 1.5rem 0; border-top: 1px solid var(--border-gray); border-bottom: 1px solid var(--border-gray); cursor: pointer;" onclick="app.showPage('artist-profile', {artistId: ${artist.id}})">
-                        ${artist.profilePhoto ? `<img src="${artist.profilePhoto}" alt="${artist.name}" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary-black);">` : '<div style="width: 70px; height: 70px; border-radius: 50%; background: var(--light-gray); display: flex; align-items: center; justify-content: center;">👤</div>'}
-                        <div>
-                            <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.25rem;">by ${drop.artistName}</div>
-                            ${artist.city ? `<div style="font-size: 0.85rem; color: var(--text-gray);">${artist.city}</div>` : ''}
-                            <div style="font-size: 0.9rem; color: var(--text-gray); line-height: 1.5; margin-top: 0.5rem;">${artist.bio || 'Artist bio not available.'}</div>
+                    <div class="artist-section" style="display: block; cursor: pointer;" onclick="app.showPage('artist-profile', {artistId: ${artist.id}})">
+                        <div style="display: flex; align-items: center; gap: 2rem; margin-bottom: 2rem;">
+                            ${artist.profilePhoto ? `<img src="${artist.profilePhoto}" alt="${artist.name}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary-black);">` : ''}
+                            <div>
+                                <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.5rem;">by ${drop.artistName}</div>
+                                ${artist.city ? `<div style="font-size: 0.85rem; color: var(--text-gray); margin-bottom: 0.5rem;">${artist.city}</div>` : ''}
+                                <div style="font-size: 0.9rem; color: var(--text-gray); line-height: 1.6;">${artist.bio}</div>
+                            </div>
                         </div>
-                    </div>
-
-                    <!-- Story Section -->
-                    <div style="margin-top: 2rem;">
-                        <h3 style="margin-bottom: 1rem; font-weight: 700;">The Story</h3>
-                        <p style="color: var(--primary-black); line-height: 1.8; font-size: 1rem; margin-bottom: 2rem;">${drop.story}</p>
-                    </div>
-
-                    <!-- Location & Details -->
-                    <div style="background: var(--light-gray); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
-                        <p style="font-size: 0.9rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <strong>📍 Location:</strong> ${drop.locationName}
-                        </p>
-                        ${location ? `
-                        <p style="font-size: 0.9rem; margin-bottom: 1rem; color: var(--text-gray);">
-                            ${location.city}, ${location.state}
-                        </p>
+                        
+                        ${artist.instagram || artist.tiktok || artist.facebook || artist.website ? `
+                        <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; padding-top: 1.5rem; border-top: 1px solid var(--border-gray);">
+                            ${artist.instagram ? `<a href="https://instagram.com/${artist.instagram.replace('@', '')}" target="_blank" style="color: var(--primary-black); text-decoration: underline; font-size: 0.9rem;">Instagram</a>` : ''}
+                            ${artist.tiktok ? `<a href="https://tiktok.com/@${artist.tiktok}" target="_blank" style="color: var(--primary-black); text-decoration: underline; font-size: 0.9rem;">TikTok</a>` : ''}
+                            ${artist.facebook ? `<a href="${artist.facebook}" target="_blank" style="color: var(--primary-black); text-decoration: underline; font-size: 0.9rem;">Facebook</a>` : ''}
+                            ${artist.website ? `<a href="${artist.website}" target="_blank" style="color: var(--primary-black); text-decoration: underline; font-size: 0.9rem;">Website</a>` : ''}
+                        </div>
                         ` : ''}
-                        ${distanceInfo}
-                        <p style="font-size: 0.9rem; margin-bottom: 1rem;"><strong>Type:</strong> ${drop.locationType || 'Street Art'}</p>
+                    </div>
+
+                    <h3 style="margin-top: 3rem; margin-bottom: 1.5rem;">The Story</h3>
+                    <p style="color: var(--primary-black); line-height: 1.8; margin-bottom: 3rem;">${drop.story}</p>
+
+                    <div style="background: var(--light-gray); padding: 2rem; margin: 3rem 0;">
+                        <p style="font-size: 0.9rem; margin-bottom: 1rem;"><strong>Location:</strong> ${drop.locationName}</p>
+                        ${location && location.id ? `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <span style="font-size: 0.85rem; color: var(--text-gray);">${location.followerCount} followers</span>
+                            ${appState.currentUser ? `
+                            <button class="btn btn-${isFollowingLocation ? 'secondary' : 'primary'}" onclick="app.toggleFollowLocation(${location.id})" style="padding: 0.5rem 1rem; font-size: 0.85rem; min-height: 36px;">
+                                ${isFollowingLocation ? 'Unfollow Location' : 'Follow Location'}
+                            </button>
+                            ` : ''}
+                        </div>
+                        ` : ''}
+                        <p style="font-size: 0.9rem; margin-bottom: 1rem;"><strong>Type:</strong> ${drop.locationType}</p>
                         <p style="font-size: 0.9rem; margin: 0;"><strong>Dropped:</strong> ${new Date(drop.dateCreated).toLocaleDateString()}</p>
                     </div>
 
-                    <!-- Action Buttons -->
-                    <div style="display: flex; flex-direction: column; gap: 1rem;">
-                        ${appState.currentUser && artist ? `
-                        <button class="btn btn-${isFollowingArtist ? 'secondary' : 'primary'}" onclick="app.toggleFollowArtist(${artist.id})" style="width: 100%; min-height: 48px; font-weight: 600;">
-                            ${isFollowingArtist ? '✓ Following Artist' : '+ Follow Artist'}
-                        </button>
-                        ` : `
-                        <button class="btn btn-primary" onclick="app.showPage('finder-login')" style="width: 100%; min-height: 48px; font-weight: 600;">
-                            Sign in to Follow
-                        </button>
-                        `}
+                    ${appState.currentUser && artist ? `
+                    <button class="btn btn-${isFollowingArtist ? 'secondary' : 'primary'}" onclick="app.toggleFollowArtist(${artist.id})" style="width: 100%; margin-bottom: 1rem; min-height: 48px;">
+                        ${isFollowingArtist ? 'Unfollow Artist' : 'Follow Artist'}
+                    </button>
+                    ` : ''}
 
-                        ${drop.status === 'active' ? `
-                        <button class="btn btn-primary" onclick="app.showPage('found-confirmation', {dropId: ${drop.id}})" style="width: 100%; min-height: 56px; font-size: 18px; font-weight: 600; background: var(--sage-green); border-color: var(--sage-green);">
-                            🎉 I Found This!
-                        </button>
-                        ` : `
-                        <div style="padding: 1rem; background: var(--light-gray); border-radius: 8px; text-align: center;">
-                            <p style="color: var(--text-gray); margin: 0;">This art has been found!</p>
-                        </div>
-                        `}
-
-                        <button class="btn btn-secondary" onclick="app.showPage('donation-flow', {dropId: ${drop.id}})" style="width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600;">
-                            <span style="font-size: 1.2rem;">💚</span> Support the Artist
-                        </button>
+                    ${drop.status === 'active' ? `
+                    <button class="btn btn-primary btn-large" onclick="app.showPage('found-confirmation', {dropId: ${drop.id}})" style="width: 100%; margin-bottom: 1rem; min-height: 56px; font-size: 18px;">
+                        I Found This!
+                    </button>
+                    ` : `
+                    <div class="alert alert-info" style="margin-bottom: 1rem;">
+                        This art has been found! It might still be at the location.
                     </div>
+                    `}
 
-                    <!-- Share Section -->
-                    <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border-gray);">
-                        <h4 style="margin-bottom: 1rem; font-weight: 600;">Share this discovery</h4>
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;">
-                            <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://artdrops.com/art/${drop.id}')" style="min-height: 40px; font-size: 0.85rem;">Copy Link</button>
-                            <button class="btn btn-outline" onclick="window.open('https://twitter.com/intent/tweet?text=Found this amazing art: ${drop.title} by ${drop.artistName}', '_blank')" style="min-height: 40px; font-size: 0.85rem;">Twitter</button>
-                            <button class="btn btn-outline" onclick="window.open('https://www.facebook.com/sharer/sharer.php?u=https://artdrops.com/art/${drop.id}', '_blank')" style="min-height: 40px; font-size: 0.85rem;">Facebook</button>
-                        </div>
-                    </div>
+                    <button class="btn btn-secondary" onclick="app.showPage('donation-flow', {dropId: ${drop.id}})" style="width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+                        </svg>
+                        Thank the Artist
+                    </button>
                 </div>
             </div>
 
-            <!-- More from this Artist -->
-            ${relatedDropsHTML}
-
-            <!-- Finder Messages -->
-            ${drop.findEvents && drop.findEvents.length > 0 ? `
-            <div style="margin-top: 5rem; margin-bottom: 5rem;">
-                <h2 style="margin-bottom: 2rem; text-align: center;">Finder Messages (${drop.findEvents.length})</h2>
-                <div style="display: grid; gap: 1rem;">
-                    ${drop.findEvents.map(event => `
-                        <div style="padding: 1.5rem; background: var(--light-gray); border-radius: 8px; border-left: 4px solid var(--sage-green);">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                <strong style="font-size: 0.95rem;">${event.finderName || 'Anonymous Finder'}</strong>
-                                ${event.donated ? '<span style="color: var(--sage-green); font-size: 1.2rem;">💚</span>' : ''}
-                            </div>
-                            <p style="margin: 0.5rem 0; color: var(--text-dark); line-height: 1.5;">"${event.message}"</p>
-                            <p style="font-size: 0.85rem; color: var(--text-gray); margin: 0.5rem 0 0 0;">${new Date(event.findDate).toLocaleDateString()}</p>
-                        </div>
-                    `).join('')}
+            <!-- Related Art from Same Artist -->
+            ${appState.artDrops.filter(d => String(d.artistId) === String(drop.artistId) && String(d.id) !== String(drop.id)).length > 0 ? `
+            <div style="margin-top: 5rem;">
+                <h2 style="margin-bottom: 2rem; text-align: center;">More from ${drop.artistName}</h2>
+                <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem;">
+                    ${appState.artDrops.filter(d => String(d.artistId) === String(drop.artistId) && String(d.id) !== String(drop.id)).slice(0, 3).map(relatedDrop => this.renderDropCard(relatedDrop)).join('')}
                 </div>
             </div>
             ` : ''}
 
-            <!-- Location Map Section -->
-            <div style="margin-top: 5rem; padding-top: 3rem; border-top: 1px solid var(--border-gray);">
-                <h2 style="margin-bottom: 2rem; text-align: center;">📍 Location</h2>
-                <div id="artStoryMap" style="width: 100%; height: 400px; border-radius: 12px; overflow: hidden; background: var(--light-gray);"></div>
-                ${location ? `
-                <div style="margin-top: 2rem; padding: 1.5rem; background: var(--light-gray); border-radius: 8px;">
-                    <h4 style="margin-top: 0; margin-bottom: 0.5rem;">${location.name}</h4>
-                    <p style="margin: 0.5rem 0; color: var(--text-gray);">${location.city}, ${location.state}</p>
-                    ${location.followerCount ? `<p style="margin: 0.5rem 0; color: var(--text-gray);">${location.followerCount} people following this location</p>` : ''}
+            <!-- Finder Messages -->
+            ${drop.findEvents && drop.findEvents.length > 0 ? `
+            <div style="margin-top: 3rem;">
+                <h2 style="margin-bottom: 2rem; text-align: center;">Finder Messages</h2>
+                ${drop.findEvents.map(event => `
+                    <div class="finder-message">
+                        <strong>${event.finderName || 'Anonymous'}</strong>
+                        ${event.donated ? '<span style="color: var(--sage-green);">💚</span>' : ''}
+                        <p style="margin: 0.5rem 0 0 0; color: var(--text-dark);">${event.message}</p>
+                        <p style="font-size: 0.85rem; color: var(--text-light); margin: 0.5rem 0 0 0;">${new Date(event.findDate).toLocaleDateString()}</p>
+                    </div>
+                `).join('')}
+            </div>
+            ` : ''}
+
+            <div style="margin-top: 5rem;">
+                <h2 style="margin-bottom: 1rem;">Location Map</h2>
+                <div class="map-container" style="height: 400px;">
+                    <div id="artStoryMap"></div>
                 </div>
-                ` : ''}
             </div>
         </div>
     `;
