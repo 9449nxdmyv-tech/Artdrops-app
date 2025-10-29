@@ -1080,35 +1080,7 @@ const appState = {
         this.showToast('Failed to update follow status');
     }
 },
-async reverseGeocode(lat, lng) {
-    try {
-        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`;
-        
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'ArtDrops App'
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (data && data.address) {
-            const addr = data.address;
-            return {
-                formattedAddress: data.display_name,
-                city: addr.city || addr.town || addr.village || '',
-                state: addr.state || '',
-                zipCode: addr.postcode || '',
-                country: addr.country_code?.toUpperCase() || ''
-            };
-        }
-        
-        return null;
-    } catch (error) {
-        console.error('Geocoding error:', error);
-        return null;
-    }
-},            
+            
 generateQRCode(dropId) {
     try {
         const qrcodeElement = document.getElementById('qrcode');
@@ -1255,6 +1227,36 @@ generateQRCode(dropId) {
                     `;
                 }
             },
+            switchPhotoTab(tab) {
+    const urlTab = document.getElementById('photoUrlTab');
+    const uploadTab = document.getElementById('photoUploadTab');
+    const urlBtn = document.getElementById('urlTabBtn');
+    const uploadBtn = document.getElementById('uploadTabBtn');
+    
+    if (tab === 'url') {
+        urlTab.style.display = 'block';
+        uploadTab.style.display = 'none';
+        urlBtn.classList.add('btn-primary');
+        urlBtn.classList.remove('btn-outline');
+        uploadBtn.classList.remove('btn-primary');
+        uploadBtn.classList.add('btn-outline');
+        
+        // Clear upload input
+        const uploadInput = document.getElementById('dropPhotoInput');
+        if (uploadInput) uploadInput.value = '';
+    } else {
+        urlTab.style.display = 'none';
+        uploadTab.style.display = 'block';
+        uploadBtn.classList.add('btn-primary');
+        uploadBtn.classList.remove('btn-outline');
+        urlBtn.classList.remove('btn-primary');
+        urlBtn.classList.add('btn-outline');
+        
+        // Clear URL input
+        const urlInput = document.getElementById('dropPhotoUrl');
+        if (urlInput) urlInput.value = '';
+    }
+},
 
             async logout() {
     try {
@@ -3968,7 +3970,35 @@ useCurrentLocation() {
         }
     );
 },
-
+async reverseGeocode(lat, lng) {
+    try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`;
+        
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'ArtDrops App'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data && data.address) {
+            const addr = data.address;
+            return {
+                formattedAddress: data.display_name,
+                city: addr.city || addr.town || addr.village || '',
+                state: addr.state || '',
+                zipCode: addr.postcode || '',
+                country: addr.country_code?.toUpperCase() || ''
+            };
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Geocoding error:', error);
+        return null;
+    }
+},
 
             // ============================================
             // HELPER METHODS
