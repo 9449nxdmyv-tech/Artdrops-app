@@ -3859,6 +3859,19 @@ async handleArtistLogin(e) {
             artistId: appState.currentUser.id,
             artistName: appState.currentUser.name
         };
+        console.log('🔍 FORM VALUES CHECK:');
+        console.log('  title from form:', form.querySelector('[name="title"]')?.value);
+        console.log('  story from form:', form.querySelector('[name="story"]')?.value);
+        console.log('  latitude from form:', form.querySelector('[name="latitude"]')?.value);
+        console.log('  longitude from form:', form.querySelector('[name="longitude"]')?.value);
+        console.log('  locationName from form:', form.querySelector('[name="locationName"]')?.value);
+        
+        console.log('📦 After collection, dropData is:');
+        console.log('  dropData.title:', dropData.title);
+        console.log('  dropData.story:', dropData.story);
+        console.log('  dropData.latitude:', dropData.latitude);
+        console.log('  dropData.longitude:', dropData.longitude);
+        console.log('  dropData.locationName:', dropData.locationName);
 
         // STEP 3: Validate required fields
         if (!dropData.title || !dropData.story) {
