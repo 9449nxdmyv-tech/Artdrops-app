@@ -226,24 +226,35 @@ async function uploadPhotoToStorage(file) {
     }
 }
 
-async function createArtDropInFirebase(formData) {
+async function createArtDropInFirebase(dropData) {
     try {
         const auth = getAuth();
         if (!auth.currentUser) {
             throw new Error('User must be logged in');
         }
 
+        // Validate required fields
+        if (!dropData.photoUrl) {
+            throw new Error('Photo URL is required');
+        }
+        if (!dropData.title) {
+            throw new Error('Title is required');
+        }
+        if (!dropData.locationName) {
+            throw new Error('Location name is required');
+        }
+
         // Create art drop document
         const artDropData = {
-            title: formData.get('title'),
-            story: formData.get('story'),
+            title: dropData.title,
+            story: dropData.story || '',
             artistId: auth.currentUser.uid,
-            artistName: appState.currentUser.name || 'Anonymous Artist',
-            photoUrl: formData.photoUrl, // Uploaded earlier
-            locationName: formData.get('locationName'),
-            latitude: parseFloat(formData.get('latitude')),
-            longitude: parseFloat(formData.get('longitude')),
-            locationType: formData.get('locationType') || 'outdoor',
+            artistName: dropData.artistName || appState.currentUser?.name || 'Anonymous Artist',
+            photoUrl: dropData.photoUrl, // Already uploaded
+            locationName: dropData.locationName,
+            latitude: dropData.latitude || 0,
+            longitude: dropData.longitude || 0,
+            locationType: dropData.locationType || 'outdoor',
             status: 'active',
             dateCreated: serverTimestamp(),
             foundCount: 0,
@@ -251,11 +262,13 @@ async function createArtDropInFirebase(formData) {
             findEvents: []
         };
 
+        console.log('💾 Saving to Firebase:', artDropData);
+
         // Add art drop to Firestore
         const artDropRef = await addDoc(collection(db, 'artDrops'), artDropData);
         console.log('✅ Art drop created:', artDropRef.id);
 
-        // **NEW: Check if location already exists**
+        // Check if location already exists
         const locationQuery = query(
             collection(db, 'locations'),
             where('name', '==', artDropData.locationName),
@@ -269,12 +282,12 @@ async function createArtDropInFirebase(formData) {
             // Location doesn't exist - create it
             const locationData = {
                 name: artDropData.locationName,
-                city: formData.get('city') || 'Unknown',
-                state: formData.get('state') || 'Unknown',
+                city: dropData.city || 'Unknown',
+                state: dropData.state || 'Unknown',
                 latitude: artDropData.latitude,
                 longitude: artDropData.longitude,
                 locationType: artDropData.locationType,
-                locationPhoto: artDropData.photoUrl, // Use art photo as location photo
+                locationPhoto: artDropData.photoUrl,
                 activeDropCount: 1,
                 followerCount: 0,
                 dateAdded: serverTimestamp()
@@ -284,7 +297,7 @@ async function createArtDropInFirebase(formData) {
             console.log('✅ New location created:', locationRef.id);
         } else {
             // Location exists - increment drop count
-            const existingLocation = locationSnap.docs[0];
+            const existingLocation = locationSnap.docs;
             await updateDoc(existingLocation.ref, {
                 activeDropCount: increment(1)
             });
@@ -1989,75 +2002,75 @@ updateMapMarkers() {
                 }
                 
                 return `
-                    <div class="container" style="max-width: 800px;">
-                        <h1>Drop New Art</h1>
-                        <p style="color: var(--text-gray); margin-bottom: 4rem; font-size: 1.1rem;">Share your painted natural treasure with the world</p>
-                        
-                        <div class="card" style="margin-bottom: 2rem;">
-                            <div class="card-content" style="padding: 2rem;">
-                                <form onsubmit="app.handleDropNewArt(event)">
-                                    <div class="form-group">
-                                        <label>Photo URL *</label>
-                                        <input type="url" id="dropPhotoUrl" class="form-control" name="photoUrl" required placeholder="https://example.com/photo.jpg">
-                                        <small style="color: var(--text-gray); display: block; margin-top: 0.5rem;">Use an image hosting service or direct link</small>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label>Title *</label>
-                                        <input type="text" id="dropTitle" class="form-control" name="title" required placeholder="Give your art a memorable name">
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label>Story * (Keep it brief and meaningful)</label>
-                                        <textarea id="dropStory" class="form-control" name="story" required placeholder="Tell the story: Where did you find this? What inspired you to paint it?"></textarea>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label>Location Type *</label>
-                                        <select id="dropLocationType" class="form-control" name="locationType" required>
-                                            <option value="">Select location type</option>
-                                            ${appState.locationTypes.map(type => `<option value="${type}">${type}</option>`).join('')}
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label>Location Name *</label>
-                                        <input type="text" id="dropLocationName" class="form-control" name="locationName" required placeholder="e.g., Central Perk Cafe, NYC">
-                                    </div>
-                                    
-                                    <div style="display: grid; grid-template-columns: 1fr; gap: 1rem;">
-                                        <div class="form-group">
-                                            <label>Latitude *</label>
-                                            <input type="number" class="form-control" name="latitude" id="dropLatitude" required step="any" placeholder="40.7589" style="min-height: 48px;">
-                                        </div>
-                                    </div>
-                                    <div style="display: grid; grid-template-columns: 1fr; gap: 1rem;">
-                                        <div class="form-group">
-                                            <label>Longitude *</label>
-                                            <input type="number" class="form-control" name="longitude" id="dropLongitude" required step="any" placeholder="-73.9851" style="min-height: 48px;">
-                                        </div>
-                                    </div>
-                                    
-                                    <button type="button" class="btn btn-secondary" onclick="app.useCurrentLocation()" style="margin-bottom: 2rem; width: 100%; min-height: 48px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <circle cx="12" cy="12" r="6"/>
-                            <circle cx="12" cy="12" r="2"/>
-                        </svg>
-                        Use My Current Location
-                    </button>
-                                    
-                                    <div class="map-container" style="height: 300px; margin-bottom: 1.5rem;">
-                                        <div id="dropLocationMap"></div>
-                                    </div>
-                                    
-    <button type="submit" class="btn btn-primary btn-large" style="width: 100%; min-height: 56px; font-size: 18px;">Create &amp; Generate QR Tag</button>
-                                </form>
-                            </div>
-                        </div>
+        <div class="container">
+            <h1>Drop New Art</h1>
+            <form onsubmit="app.handleDropNewArt(event)">
+                <div class="form-group">
+                    <label>Title *</label>
+                    <input type="text" name="title" class="form-control" required placeholder="Give your art a name">
+                </div>
+                
+                <div class="form-group">
+                    <label>Story *</label>
+                    <textarea name="story" class="form-control" rows="4" required placeholder="Tell the story of this piece..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Photo *</label>
+                    <input type="file" id="dropPhotoInput" accept="image/*" class="form-control" required>
+                    <p style="font-size: 0.85rem; color: var(--text-gray); margin-top: 0.5rem;">Maximum 5MB - JPG, PNG, or GIF</p>
+                </div>
+                
+                <div class="form-group">
+                    <label>Location Name *</label>
+                    <input type="text" name="locationName" class="form-control" required placeholder="e.g., Central Park Bench">
+                </div>
+                
+                <div class="form-group">
+                    <label>City</label>
+                    <input type="text" name="city" class="form-control" placeholder="City">
+                </div>
+                
+                <div class="form-group">
+                    <label>State</label>
+                    <input type="text" name="state" class="form-control" placeholder="State">
+                </div>
+                
+                <div class="form-group">
+                    <label>Location Type</label>
+                    <select name="locationType" class="form-control">
+                        <option value="outdoor">Outdoor</option>
+                        <option value="park">Park</option>
+                        <option value="trail">Trail</option>
+                        <option value="cafe">Cafe</option>
+                        <option value="bookstore">Bookstore</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Coordinates</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <input type="number" name="latitude" step="any" class="form-control" placeholder="Latitude" required>
+                        <input type="number" name="longitude" step="any" class="form-control" placeholder="Longitude" required>
                     </div>
-                `;
-            },
+                    <button type="button" class="btn btn-secondary" onclick="app.useCurrentLocation()" style="margin-top: 0.5rem; width: 100%;">
+                        Use Current Location
+                    </button>
+                </div>
+                
+                <div class="form-group">
+                    <label>Materials (optional)</label>
+                    <input type="text" name="materials" class="form-control" placeholder="e.g., Stone, Acrylic Paint">
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-large" style="width: 100%; min-height: 56px;">
+                    Create & Generate QR Tag
+                </button>
+            </form>
+        </div>
+    `;
+},
 
 renderMyDrops() {
     if (!appState.currentUser) {
@@ -3580,52 +3593,102 @@ async handleArtistLogin(e) {
             this.showPage('artist-login');
             return;
         }
-        
+
         const submitBtn = e.target.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
         submitBtn.textContent = 'Creating...';
+
+        // Get form elements
+        const form = e.target;
+        const photoInput = document.getElementById('dropPhotoInput');
         
-        const formData = new FormData(e.target);
-        const artDropRef = await createArtDropInFirebase(formData);
-        const newDrop = {
-            id: artDropRef.id,  // ← Use the document ID from Firebase
+        // STEP 1: Upload photo FIRST (this is required)
+        if (!photoInput || !photoInput.files || photoInput.files.length === 0) {
+            this.showToast('Please select a photo for your art drop');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Create & Generate QR Tag';
+            return;
+        }
+
+        this.showLoadingOverlay('Uploading photo...');
+        
+        // Upload photo to Firebase Storage
+        let photoUrl;
+        try {
+            photoUrl = await uploadPhotoToStorage(photoInput.files);
+            console.log('✅ Photo uploaded:', photoUrl);
+        } catch (error) {
+            console.error('❌ Photo upload failed:', error);
+            this.hideLoadingOverlay();
+            this.showToast('Photo upload failed: ' + error.message);
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Create & Generate QR Tag';
+            return;
+        }
+
+        this.showLoadingOverlay('Creating art drop...');
+
+        // STEP 2: Create FormData with ALL fields including photoUrl
+        const formDataObject = {
+            // Art details
+            title: form.querySelector('[name="title"]')?.value || 'Untitled',
+            story: form.querySelector('[name="story"]')?.value || '',
+            photoUrl: photoUrl, // ← Use the uploaded photo URL
+            
+            // Artist info
             artistId: appState.currentUser.id,
-            artistName: appState.currentUser.name,
-            artistPhoto: appState.currentUser.profilePhoto,
-            title: formData.get('title'),
-            story: formData.get('story'),
-            photoUrl: formData.get('photoUrl'),
-            latitude: parseFloat(formData.get('latitude')),
-            longitude: parseFloat(formData.get('longitude')),
-            locationType: formData.get('locationType'),
-            locationName: formData.get('locationName'),
-            materials: formData.get('materials') || '',
-            dateCreated: new Date().toISOString().split('T'),
+            artistName: appState.currentUser.name || 'Anonymous Artist',
+            
+            // Location info
+            locationName: form.querySelector('[name="locationName"]')?.value || 'Unknown Location',
+            latitude: parseFloat(form.querySelector('[name="latitude"]')?.value) || 0,
+            longitude: parseFloat(form.querySelector('[name="longitude"]')?.value) || 0,
+            locationType: form.querySelector('[name="locationType"]')?.value || 'outdoor',
+            city: form.querySelector('[name="city"]')?.value || 'Unknown',
+            state: form.querySelector('[name="state"]')?.value || 'Unknown',
+            
+            // Metadata
+            materials: form.querySelector('[name="materials"]')?.value || '',
+            dateCreated: new Date().toISOString(),
             status: 'active',
             foundCount: 0,
             totalDonations: 0,
             findEvents: []
         };
+
+        console.log('📦 Creating art drop with data:', formDataObject);
+
+        // STEP 3: Create art drop in Firebase
+        const artDropRef = await createArtDropInFirebase(formDataObject);
         
-        // Try to save to Firebase
-        try {
-            const createdId = await createArtDropInFirebase(newDrop);
-            newDrop.id = createdId;
-        } catch (error) {
-            console.warn("Firebase save failed, using local ID:", error);
+        console.log('✅ Art drop created:', artDropRef.id);
+
+        // STEP 4: Add to local cache
+        const newDrop = {
+            id: artDropRef.id,
+            ...formDataObject
+        };
+        
+        appState.artDrops.unshift(newDrop);
+        
+        // Update user's active drops count
+        if (appState.currentUser) {
+            appState.currentUser.activeDrops = (appState.currentUser.activeDrops || 0) + 1;
         }
-        
-        // Add to local cache
-        appState.artDrops.push(newDrop);
-        appState.currentUser.activeDrops = (appState.currentUser.activeDrops || 0) + 1;
-        
-        this.showToast('✅ Art drop created!');
-        this.showPage('qr-tag-generator', { dropId: newDrop.id });
-        
+
+        this.hideLoadingOverlay();
+        this.showToast('✅ Art drop created successfully!');
+
+        // STEP 5: Navigate to QR code generator
+        setTimeout(() => {
+            this.showPage('qr-tag-generator', { dropId: artDropRef.id });
+        }, 1000);
+
     } catch (error) {
-        console.error('❌ Error creating drop:', error);
+        console.error('❌ Error creating art drop:', error);
+        this.hideLoadingOverlay();
         this.showToast('Failed to create drop: ' + error.message);
-    } finally {
+        
         const submitBtn = e.target.querySelector('button[type="submit"]');
         submitBtn.disabled = false;
         submitBtn.textContent = 'Create & Generate QR Tag';
