@@ -13,7 +13,6 @@ import { state } from './modules/state-manager.js';
 import { uiModule } from './modules/ui-module.js';
 import { utils } from './modules/utils.js';    
 
-
 // ============================================
 // MAIN APP OBJECT
 // ============================================
