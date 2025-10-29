@@ -203,40 +203,73 @@ async function uploadPhotoToStorage(file) {
 
 async function createArtDropInFirebase(formData) {
     try {
+        const auth = getAuth();
         if (!auth.currentUser) {
-            throw new Error("Must be signed in");
+            throw new Error('User must be logged in');
         }
-        
-        const artData = {
+
+        // Create art drop document
+        const artDropData = {
+            title: formData.get('title'),
+            story: formData.get('story'),
             artistId: auth.currentUser.uid,
-            artistName: auth.currentUser.displayName || 'Artist',
-            artistPhoto: auth.currentUser.photoURL || '',
-            title: formData.title,
-            story: formData.story,
-            photoUrl: formData.photoUrl,
-            latitude: parseFloat(formData.latitude),
-            longitude: parseFloat(formData.longitude),
-            locationType: formData.locationType,
-            locationName: formData.locationName,
-            materials: formData.materials || '',
-            dateCreated: serverTimestamp(),
+            artistName: appState.currentUser.name || 'Anonymous Artist',
+            photoUrl: formData.photoUrl, // Uploaded earlier
+            locationName: formData.get('locationName'),
+            latitude: parseFloat(formData.get('latitude')),
+            longitude: parseFloat(formData.get('longitude')),
+            locationType: formData.get('locationType') || 'outdoor',
             status: 'active',
+            dateCreated: serverTimestamp(),
             foundCount: 0,
             totalDonations: 0,
             findEvents: []
         };
+
+        // Add art drop to Firestore
+        const artDropRef = await addDoc(collection(db, 'artDrops'), artDropData);
+        console.log('✅ Art drop created:', artDropRef.id);
+
+        // **NEW: Check if location already exists**
+        const locationQuery = query(
+            collection(db, 'locations'),
+            where('name', '==', artDropData.locationName),
+            where('latitude', '==', artDropData.latitude),
+            where('longitude', '==', artDropData.longitude)
+        );
         
-        const docRef = await addDoc(collection(db, 'artDrops'), artData);
+        const locationSnap = await getDocs(locationQuery);
         
-        // Update user's activeDrops count
-        const userRef = doc(db, 'users', auth.currentUser.uid);
-        await updateDoc(userRef, {
-            activeDrops: increment(1)
-        });
-        
-        return docRef.id;
+        if (locationSnap.empty) {
+            // Location doesn't exist - create it
+            const locationData = {
+                name: artDropData.locationName,
+                city: formData.get('city') || 'Unknown',
+                state: formData.get('state') || 'Unknown',
+                latitude: artDropData.latitude,
+                longitude: artDropData.longitude,
+                locationType: artDropData.locationType,
+                locationPhoto: artDropData.photoUrl, // Use art photo as location photo
+                activeDropCount: 1,
+                followerCount: 0,
+                dateAdded: serverTimestamp()
+            };
+
+            const locationRef = await addDoc(collection(db, 'locations'), locationData);
+            console.log('✅ New location created:', locationRef.id);
+        } else {
+            // Location exists - increment drop count
+            const existingLocation = locationSnap.docs[0];
+            await updateDoc(existingLocation.ref, {
+                activeDropCount: increment(1)
+            });
+            console.log('✅ Updated existing location drop count');
+        }
+
+        return artDropRef;
+
     } catch (error) {
-        console.error("❌ Error creating art drop:", error);
+        console.error('❌ Error creating art drop:', error);
         throw error;
     }
 }
@@ -1689,33 +1722,187 @@ renderFoundConfirmation(dropId) {
             },
 
             renderBrowseMap() {
-                return `
-                    <div id="map-page">
-                        <div class="map-container">
-                            <div id="browseMap"></div>
-                        </div>
-                        
-                        <!-- Floating Filter Chips -->
-                        <div style="position: absolute; top: 1rem; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; padding: 0 1rem;">
-                            <button class="btn btn-secondary" onclick="app.filterMapMarkers('all')" style="min-height: 36px; padding: 0.5rem 1rem; font-size: 0.85rem; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">All</button>
-                            <button class="btn btn-secondary" onclick="app.filterMapMarkers('active')" style="min-height: 36px; padding: 0.5rem 1rem; font-size: 0.85rem; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">Active</button>
-                            <button class="btn btn-secondary" onclick="app.filterMapMarkers('found')" style="min-height: 36px; padding: 0.5rem 1rem; font-size: 0.85rem; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">Found</button>
-                        </div>
+    return `
+        <div class="map-page">
+            <!-- Mobile-Optimized Filter Toggle -->
+            <button id="filterToggle" 
+                    class="filter-toggle-btn" 
+                    onclick="app.toggleMapFilters()"
+                    style="position: fixed; top: 80px; right: 16px; z-index: 1000; background: white; border: 2px solid var(--primary-black); border-radius: 50%; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="4" y1="21" x2="4" y2="14"/>
+                    <line x1="4" y1="10" x2="4" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12" y2="3"/>
+                    <line x1="20" y1="21" x2="20" y2="16"/>
+                    <line x1="20" y1="12" x2="20" y2="3"/>
+                    <line x1="1" y1="14" x2="7" y1="14"/>
+                    <line x1="9" y1="8" x2="15" y1="8"/>
+                    <line x1="17" y1="16" x2="23" y1="16"/>
+                </svg>
+            </button>
+
+            <!-- Collapsible Filter Panel -->
+            <div id="mapFilters" class="map-filters" style="display: none; position: fixed; top: 150px; right: 16px; z-index: 999; background: white; border-radius: 12px; padding: 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: 90vw; width: 300px;">
+                <h3 style="margin: 0 0 1rem; font-size: 1rem;">Filters</h3>
+                
+                <!-- Status Filter -->
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem;">Status</label>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <button class="filter-btn active" data-filter="status" data-value="all" onclick="app.updateMapFilter('status', 'all')" style="padding: 0.5rem 1rem; border: 2px solid var(--border-gray); border-radius: 20px; background: var(--primary-black); color: white; font-size: 0.85rem;">
+                            All
+                        </button>
+                        <button class="filter-btn" data-filter="status" data-value="active" onclick="app.updateMapFilter('status', 'active')" style="padding: 0.5rem 1rem; border: 2px solid var(--border-gray); border-radius: 20px; background: white; color: var(--primary-black); font-size: 0.85rem;">
+                            Active
+                        </button>
+                        <button class="filter-btn" data-filter="status" data-value="found" onclick="app.updateMapFilter('status', 'found')" style="padding: 0.5rem 1rem; border: 2px solid var(--border-gray); border-radius: 20px; background: white; color: var(--primary-black); font-size: 0.85rem;">
+                            Found
+                        </button>
                     </div>
-                        
-                        <div style="margin-top: 3rem; padding: 2rem 1.5rem; background: var(--light-gray);">
-                            <h3 style="margin-bottom: 2rem; text-align: center;">How to Find Art</h3>
-                            <ol style="color: var(--text-gray); line-height: 2.2;">
-                                <li>Check the map for art drops near you (Active or Found status)</li>
-                                <li>Visit the location and look for the painted natural object with a QR code tag</li>
-                                <li>Scan the QR code to see the art's story</li>
-                                <li>Click "I Found This!" and optionally leave a message</li>
-                                <li>Consider thanking the artist with a small donation</li>
-                            </ol>
-                        </div>
+                </div>
+
+                <!-- Location Type Filter -->
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem;">Location Type</label>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <button class="filter-btn active" data-filter="locationType" data-value="all" onclick="app.updateMapFilter('locationType', 'all')" style="padding: 0.5rem 1rem; border: 2px solid var(--border-gray); border-radius: 20px; background: var(--primary-black); color: white; font-size: 0.85rem;">
+                            All
+                        </button>
+                        <button class="filter-btn" data-filter="locationType" data-value="park" onclick="app.updateMapFilter('locationType', 'park')" style="padding: 0.5rem 1rem; border: 2px solid var(--border-gray); border-radius: 20px; background: white; color: var(--primary-black); font-size: 0.85rem;">
+                            Park
+                        </button>
+                        <button class="filter-btn" data-filter="locationType" data-value="trail" onclick="app.updateMapFilter('locationType', 'trail')" style="padding: 0.5rem 1rem; border: 2px solid var(--border-gray); border-radius: 20px; background: white; color: var(--primary-black); font-size: 0.85rem;">
+                            Trail
+                        </button>
+                        <button class="filter-btn" data-filter="locationType" data-value="urban" onclick="app.updateMapFilter('locationType', 'urban')" style="padding: 0.5rem 1rem; border: 2px solid var(--border-gray); border-radius: 20px; background: white; color: var(--primary-black); font-size: 0.85rem;">
+                            Urban
+                        </button>
                     </div>
-                `;
-            },
+                </div>
+
+                <!-- Distance Filter -->
+                <div>
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem;">Distance</label>
+                    <input type="range" id="distanceFilter" min="0" max="50" value="50" onchange="app.updateMapFilter('distance', this.value)" style="width: 100%; margin-bottom: 0.5rem;">
+                    <div style="text-align: center; font-size: 0.85rem; color: var(--text-gray);">
+                        Within <span id="distanceValue">50</span> miles
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map Container -->
+            <div id="browseMap" style="width: 100%; height: calc(100vh - 80px);"></div>
+        </div>
+    `;
+},
+            toggleMapFilters() {
+    const filterPanel = document.getElementById('mapFilters');
+    if (filterPanel.style.display === 'none') {
+        filterPanel.style.display = 'block';
+    } else {
+        filterPanel.style.display = 'none';
+    }
+},
+
+// Update map filters
+updateMapFilter(filterType, value) {
+    // Update button styles
+    const buttons = document.querySelectorAll(`[data-filter="${filterType}"]`);
+    buttons.forEach(btn => {
+        if (btn.dataset.value === value) {
+            btn.style.background = 'var(--primary-black)';
+            btn.style.color = 'white';
+            btn.classList.add('active');
+        } else {
+            btn.style.background = 'white';
+            btn.style.color = 'var(--primary-black)';
+            btn.classList.remove('active');
+        }
+    });
+
+    // Update distance display
+    if (filterType === 'distance') {
+        document.getElementById('distanceValue').textContent = value;
+    }
+
+    // Store filters
+    if (!appState.mapFilters) {
+        appState.mapFilters = {
+            status: 'all',
+            locationType: 'all',
+            distance: 50
+        };
+    }
+    appState.mapFilters[filterType] = value;
+
+    // Re-render map markers with filters
+    this.updateMapMarkers();
+},
+
+// Update map markers based on filters
+updateMapMarkers() {
+    if (!window.mapInstance) return;
+
+    // Clear existing markers
+    if (window.mapMarkers) {
+        window.mapMarkers.forEach(marker => marker.remove());
+    }
+    window.mapMarkers = [];
+
+    // Filter drops based on current filters
+    const filters = appState.mapFilters || { status: 'all', locationType: 'all', distance: 50 };
+    
+    let filteredDrops = appState.artDrops;
+
+    // Apply status filter
+    if (filters.status !== 'all') {
+        filteredDrops = filteredDrops.filter(d => d.status === filters.status);
+    }
+
+    // Apply location type filter
+    if (filters.locationType !== 'all') {
+        filteredDrops = filteredDrops.filter(d => d.locationType === filters.locationType);
+    }
+
+    // Apply distance filter
+    if (appState.userLocation && filters.distance < 50) {
+        filteredDrops = filteredDrops.filter(d => {
+            const distance = this.calculateDistance(
+                appState.userLocation.latitude,
+                appState.userLocation.longitude,
+                d.latitude,
+                d.longitude
+            );
+            return distance <= filters.distance;
+        });
+    }
+
+    // Add markers for filtered drops
+    filteredDrops.forEach(drop => {
+        const marker = new mapboxgl.Marker({
+            color: drop.status === 'active' ? '#4CAF50' : '#FF9800'
+        })
+            .setLngLat([drop.longitude, drop.latitude])
+            .setPopup(
+                new mapboxgl.Popup().setHTML(`
+                    <div style="padding: 0.5rem;">
+                        <h4 style="margin: 0 0 0.5rem;">${drop.title}</h4>
+                        <p style="margin: 0 0 0.5rem; font-size: 0.85rem;">${drop.locationName}</p>
+                        <button onclick="app.showPage('art-story', {dropId: '${drop.id}'})" 
+                                style="padding: 0.5rem 1rem; background: var(--primary-black); color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 0.85rem;">
+                            View Details
+                        </button>
+                    </div>
+                `)
+            )
+            .addTo(window.mapInstance);
+
+        window.mapMarkers.push(marker);
+    });
+
+    console.log(`✅ Showing ${filteredDrops.length} of ${appState.artDrops.length} drops`);
+},
 
             renderArtistDashboard() {
                if (!appState.currentUser) {
@@ -4456,77 +4643,102 @@ useCurrentLocation() {
 },
 
             renderLocationDetail(locationId) {
-                const location = appState.locations.find(l => l.id === locationId);
-                if (!location) {
-                    return '<div class="container"><p>Location not found</p></div>';
-                }
+    // Defensive lookup with type-safe ID matching
+    const location = appState.locations.find(l => String(l.id) === String(locationId));
+    
+    if (!location) {
+        console.error('Location not found:', locationId, 'Available locations:', appState.locations);
+        return `
+            <div class="container" style="text-align: center; padding: 3rem 1rem;">
+                <h2>Location Not Found</h2>
+                <p style="color: var(--text-gray); margin: 1rem 0 2rem;">
+                    This location doesn't exist or hasn't been loaded yet.
+                </p>
+                <button class="btn btn-primary" onclick="app.showPage('popular-locations')">
+                    Browse Locations
+                </button>
+            </div>
+        `;
+    }
+
+    // Get art drops at this location
+    const dropsAtLocation = appState.artDrops.filter(d => 
+        d.locationName === location.name || 
+        String(d.locationId) === String(location.id)
+    );
+
+    // Check if user follows this location
+    const isFollowing = appState.currentUser ? 
+        appState.follows.some(f => 
+            f.followerId === appState.currentUser.id && 
+            f.targetType === 'location' && 
+            String(f.targetId) === String(location.id)
+        ) : false;
+
+    return `
+        <div class="container">
+            <div class="location-header" style="margin-bottom: 3rem;">
+                <img src="${location.locationPhoto || 'https://via.placeholder.com/1200x400?text=Location'}" 
+                     alt="${location.name}" 
+                     style="width: 100%; height: 300px; object-fit: cover; border-radius: 12px; margin-bottom: 2rem;">
                 
-                const artAtLocation = appState.artDrops.filter(d => 
-                    d.latitude === location.latitude && d.longitude === location.longitude
-                );
-                
-                const isFollowing = appState.currentUser && appState.follows.some(
-                    f => f.followerId === appState.currentUser.id && f.targetType === 'location' && f.targetId === location.id
-                );
-                
-                return `
-                    <div class="container" style="max-width: 1200px;">
-                        <div style="margin-bottom: 3rem;">
-                            ${location.featuredPhotos && location.featuredPhotos.length > 0 ? `
-                                <div style="width: 100%; height: 400px; background: var(--light-gray); overflow: hidden; margin-bottom: 2rem;">
-                                    <img src="${location.featuredPhotos[0]}" alt="${location.name}" style="width: 100%; height: 100%; object-fit: cover;">
-                                </div>
-                            ` : `
-                                <div style="width: 100%; height: 400px; background: var(--light-gray); display: flex; align-items: center; justify-content: center; margin-bottom: 2rem;">
-                                    <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
-                                        <circle cx="12" cy="10" r="3"/>
-                                    </svg>
-                                </div>
-                            `}
-                            
-                            <h1 style="margin-bottom: 0.5rem;">${location.name}</h1>
-                            <p style="color: var(--text-gray); font-size: 1.1rem; margin-bottom: 2rem;">${location.address}, ${location.city}, ${location.state}</p>
-                            
-                            <div style="display: flex; gap: 2rem; flex-wrap: wrap; align-items: center; margin-bottom: 3rem;">
-                                <div style="display: flex; gap: 2rem;">
-                                    <div>
-                                        <div style="font-size: 2rem; font-weight: 600; color: var(--primary-black);">${location.followerCount}</div>
-                                        <div style="color: var(--text-gray); font-size: 0.9rem;">Followers</div>
-                                    </div>
-                                    <div>
-                                        <div style="font-size: 2rem; font-weight: 600; color: var(--primary-black);">${location.activeDropCount}</div>
-                                        <div style="color: var(--text-gray); font-size: 0.9rem;">Active Drops</div>
-                                    </div>
-                                </div>
-                                ${appState.currentUser ? `
-                                    <button class="btn btn-${isFollowing ? 'secondary' : 'primary'}" onclick="app.toggleFollowLocation('${location.id}')" style="min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                                        ${isFollowing ? 'Unfollow' : '<svg class="icon icon-small" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Follow Location'}
-                                    </button>
-                                ` : ''}
-                                <button class="btn btn-secondary" onclick="window.open('https://maps.google.com/?q=${location.latitude},${location.longitude}', '_blank')" style="min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                                    <svg class="icon icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="12" cy="12" r="10"/>
-                                        <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
-                                    </svg>
-                                    Get Directions
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <h2 style="margin-bottom: 2rem;">Art at This Location (${artAtLocation.length})</h2>
-                        ${artAtLocation.length > 0 ? `
-                            <div class="grid grid-3">
-                                ${artAtLocation.map(drop => this.renderDropCard(drop)).join('')}
-                            </div>
-                        ` : `
-                            <div style="text-align: center; padding: 3rem; background: var(--light-gray);">
-                                <p style="color: var(--text-gray);">No art drops at this location yet</p>
-                            </div>
-                        `}
+                <div style="display: flex; justify-content: space-between; align-items: start; gap: 2rem; flex-wrap: wrap;">
+                    <div>
+                        <h1 style="margin: 0 0 0.5rem;">${location.name}</h1>
+                        <p style="color: var(--text-gray); font-size: 1.1rem; margin: 0;">
+                            📍 ${location.city}, ${location.state}
+                        </p>
                     </div>
-                `;
-            },
+                    
+                    ${appState.currentUser ? `
+                    <button class="btn btn-${isFollowing ? 'secondary' : 'primary'}" 
+                            onclick="app.toggleFollowLocation('${location.id}')" 
+                            style="min-height: 48px; min-width: 150px;">
+                        ${isFollowing ? '✓ Following' : '+ Follow Location'}
+                    </button>
+                    ` : ''}
+                </div>
+                
+                <div style="display: flex; gap: 3rem; margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border-gray);">
+                    <div>
+                        <div style="font-size: 2rem; font-weight: 700; color: var(--primary-black);">${location.followerCount || 0}</div>
+                        <div style="color: var(--text-gray);">Followers</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 2rem; font-weight: 700; color: var(--primary-black);">${dropsAtLocation.length}</div>
+                        <div style="color: var(--text-gray);">Art Drops</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 2rem; font-weight: 700; color: var(--primary-black);">${location.locationType || 'Outdoor'}</div>
+                        <div style="color: var(--text-gray);">Type</div>
+                    </div>
+                </div>
+            </div>
+
+            ${dropsAtLocation.length > 0 ? `
+            <h2 style="margin-bottom: 2rem;">Art at This Location</h2>
+            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; margin-bottom: 3rem;">
+                ${dropsAtLocation.map(drop => this.renderDropCard(drop)).join('')}
+            </div>
+            ` : `
+            <div style="text-align: center; padding: 3rem 1rem; background: var(--light-gray); border-radius: 12px;">
+                <h3>No art drops yet</h3>
+                <p style="color: var(--text-gray); margin: 1rem 0 2rem;">Be the first to drop art at this location!</p>
+                ${appState.currentUser ? `
+                <button class="btn btn-primary" onclick="app.showPage('drop-new-art')" style="min-height: 48px;">
+                    Drop Art Here
+                </button>
+                ` : ''}
+            </div>
+            `}
+
+            <div style="margin-top: 3rem;">
+                <h2 style="margin-bottom: 1rem;">Location Map</h2>
+                <div id="locationDetailMap" style="width: 100%; height: 400px; border-radius: 12px; background: var(--light-gray);"></div>
+            </div>
+        </div>
+    `;
+},
 
             sortLocations(sortBy) {
                 let sorted = [...appState.locations];
