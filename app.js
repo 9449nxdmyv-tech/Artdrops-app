@@ -2090,41 +2090,39 @@ renderMyDrops() {
             
 
 renderQRTagGenerator(dropId) {
-    console.log("Rendering QR generator for drop ID:", dropId);
+    console.log('Rendering QR generator for drop ID:', dropId);
     
-    if (!dropId) {
-        return `
-            <div class="container">
-                <p>Error: No drop ID provided</p>
-            </div>
-        `;
+    // Convert dropId to string if it's an object
+    const dropIdString = typeof dropId === 'object' && dropId.id ? dropId.id : String(dropId);
+    
+    if (!dropIdString) {
+        return `<div class="container"><p>Error: No drop ID provided</p></div>`;
     }
-    
+
     // Find drop from local cache (it was just created)
-    let drop = appState.artDrops.find(d => d.id === dropId);
+    let drop = appState.artDrops.find(d => String(d.id) === dropIdString);
     
     if (!drop) {
-        console.warn("Drop not found in cache for ID:", dropId);
+        console.warn('Drop not found in cache for ID:', dropIdString);
         // Create a temporary drop object
         drop = {
-            id: dropId,
+            id: dropIdString,
             title: 'Your Art Drop',
             story: 'Art drop created successfully'
         };
     }
-    
-    // Generate unique QR code reference
-    const qrCode = 'AD-' + dropId.substring(0, 8).toUpperCase();
-    
+
+    // Generate unique QR code reference (use string version of ID)
+    const qrCode = 'AD-' + dropIdString.substring(0, 8).toUpperCase();
+
     return `
         <div class="container" style="max-width: 600px;">
-            <h1 style="text-align: center; margin-bottom: 1rem;">🎨 QR Tag Created!</h1>
+            <h1 style="text-align: center; margin-bottom: 1rem;">QR Tag Created!</h1>
             <p style="text-align: center; color: var(--text-gray); margin-bottom: 2rem;">Print & attach this to your art</p>
             
             <div class="card" style="text-align: center;">
                 <div class="card-content" style="padding: 2rem;">
                     <div id="qrcode" style="margin: 2rem auto; display: flex; justify-content: center;"></div>
-                    
                     <h3 style="margin: 1rem 0;">${drop.title}</h3>
                     <p style="color: #666; margin-bottom: 1rem;">QR Code: ${qrCode}</p>
                     
@@ -2137,8 +2135,14 @@ renderQRTagGenerator(dropId) {
                         </p>
                     </div>
                     
-                    <button class="btn btn-primary" onclick="app.downloadQRCode('${qrCode}')" style="margin-bottom: 1rem; width: 100%;">📥 Download QR Code</button>
-                    <button class="btn btn-secondary" onclick="app.showPage('home')" style="width: 100%;">← Back to Home</button>
+                    <div style="display: flex; gap: 1rem; margin-top: 2rem; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="window.print()" style="flex: 1; min-width: 150px; min-height: 48px;">
+                            Print QR Tag
+                        </button>
+                        <button class="btn btn-secondary" onclick="app.showPage('my-drops')" style="flex: 1; min-width: 150px; min-height: 48px;">
+                            View My Drops
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3559,9 +3563,9 @@ async handleArtistLogin(e) {
         submitBtn.textContent = 'Creating...';
         
         const formData = new FormData(e.target);
-        
+        const artDropRef = await createArtDropInFirebase(formData);
         const newDrop = {
-            id: Date.now(),
+            id: artDropRef.id,  // ← Use the document ID from Firebase
             artistId: appState.currentUser.id,
             artistName: appState.currentUser.name,
             artistPhoto: appState.currentUser.profilePhoto,
@@ -4886,29 +4890,25 @@ useCurrentLocation() {
 
   generateQRCode(dropId) {
     try {
-        const qrcodeElement = document.getElementById('qrcode');
+        // Convert dropId to string if it's an object
+        const dropIdString = typeof dropId === 'object' && dropId.id ? dropId.id : String(dropId);
         
+        const qrcodeElement = document.getElementById('qrcode');
         if (!qrcodeElement) {
             console.error('QR code element not found');
             return;
         }
-        
-        // Verify QRCode library exists
+
         if (typeof QRCode === 'undefined') {
-            console.error('QRCode library not loaded. Trying to load...');
-            // Try loading dynamically
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-            script.onload = () => {
-                this.generateQRCode(dropId); // Retry
-            };
-            document.head.appendChild(script);
+            console.error('QRCode library not loaded');
             return;
         }
-        
+
+        // Clear any existing QR code
         qrcodeElement.innerHTML = '';
-        const qrText = 'https://artdrops.app/drop/' + dropId;
-        
+
+        // Generate QR code with drop URL
+        const qrText = `https://artdrops.app/drop/${dropIdString}`;
         new QRCode(qrcodeElement, {
             text: qrText,
             width: 256,
@@ -4917,9 +4917,8 @@ useCurrentLocation() {
             colorLight: '#ffffff',
             correctLevel: QRCode.CorrectLevel.H
         });
-        
-        console.log("✅ QR code generated for:", qrText);
-        
+
+        console.log('✅ QR code generated for:', qrText);
     } catch (error) {
         console.error('❌ Error generating QR code:', error);
     }
