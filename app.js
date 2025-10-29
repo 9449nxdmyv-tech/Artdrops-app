@@ -370,35 +370,7 @@ async function loadPopularLocationsFromFirebase() {
         console.error("❌ Error loading popular locations:", error);
     }
 }
-async reverseGeocode(lat, lng) { 
-    try {
-        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`;
-        
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'ArtDrops App'
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (data && data.address) {
-            const addr = data.address;
-            return {
-                formattedAddress: data.display_name,
-                city: addr.city || addr.town || addr.village || '',
-                state: addr.state || '',
-                zipCode: addr.postcode || '',
-                country: addr.country_code?.toUpperCase() || ''
-            };
-        }
-        
-        return null;
-    } catch (error) {
-        console.error('Geocoding error:', error);
-        return null;
-    }
-}
+
 
 
 const appState = {
@@ -1332,7 +1304,7 @@ generateQRCode(dropId) {
                     `;
                 }
             },
-            switchPhotoTab(tab) {
+    switchPhotoTab(tab) {
     const urlTab = document.getElementById('photoUrlTab');
     const uploadTab = document.getElementById('photoUploadTab');
     const urlBtn = document.getElementById('urlTabBtn');
@@ -1362,8 +1334,36 @@ generateQRCode(dropId) {
         if (urlInput) urlInput.value = '';
     }
 },
-
-            async logout() {
+async reverseGeocode(lat, lng) { 
+    try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`;
+        
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'ArtDrops App'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data && data.address) {
+            const addr = data.address;
+            return {
+                formattedAddress: data.display_name,
+                city: addr.city || addr.town || addr.village || '',
+                state: addr.state || '',
+                zipCode: addr.postcode || '',
+                country: addr.country_code?.toUpperCase() || ''
+            };
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Geocoding error:', error);
+        return null;
+    }
+},
+async logout() {
     try {
         this.showLoadingOverlay('Signing out...');
         
@@ -2115,7 +2115,7 @@ updateMapMarkers() {
         <div class="container" style="max-width: 800px;">
             <h1>Drop New Art</h1>
             
-            <form onsubmit="app.handleDropNewArt(event)">
+            <form onsubmit="app.handleDropNewArtWithFirebase(event)">
                 <!-- Photo: Choose URL or Upload -->
                 <div class="form-group">
                     <label>Photo *</label>
