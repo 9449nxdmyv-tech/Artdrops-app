@@ -1,7 +1,6 @@
 // ============================================
 // AUTHENTICATION SERVICE
 // ============================================
-
 import { 
     signInWithPopup, 
     GoogleAuthProvider, 
