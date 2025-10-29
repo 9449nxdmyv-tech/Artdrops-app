@@ -1996,75 +1996,107 @@ updateMapMarkers() {
             },
 
             renderDropNewArt() {
-                if (!appState.currentUser) {
-                    this.showPage('artist-login');
-                    return;
-                }
-                
-                return `
-        <div class="container">
+    if (!appState.currentUser) {
+        this.showPage('artist-login');
+        return;
+    }
+
+    return `
+        <div class="container" style="max-width: 800px;">
             <h1>Drop New Art</h1>
+            <p style="color: var(--text-gray); margin-bottom: 2rem; font-size: 1.1rem;">
+                Share your painted natural treasure with the world
+            </p>
+
             <form onsubmit="app.handleDropNewArt(event)">
-                <div class="form-group">
-                    <label>Title *</label>
-                    <input type="text" name="title" class="form-control" required placeholder="Give your art a name">
-                </div>
-                
-                <div class="form-group">
-                    <label>Story *</label>
-                    <textarea name="story" class="form-control" rows="4" required placeholder="Tell the story of this piece..."></textarea>
-                </div>
-                
                 <div class="form-group">
                     <label>Photo *</label>
                     <input type="file" id="dropPhotoInput" accept="image/*" class="form-control" required>
-                    <p style="font-size: 0.85rem; color: var(--text-gray); margin-top: 0.5rem;">Maximum 5MB - JPG, PNG, or GIF</p>
+                    <small style="color: var(--text-gray); display: block; margin-top: 0.5rem;">
+                        Maximum 5MB - JPG, PNG, or GIF
+                    </small>
                 </div>
-                
+
+                <div class="form-group">
+                    <label>Title *</label>
+                    <input type="text" name="title" class="form-control" required placeholder="Give your art a memorable name">
+                </div>
+
+                <div class="form-group">
+                    <label>Story (Keep it brief and meaningful) *</label>
+                    <textarea name="story" class="form-control" rows="4" required 
+                              placeholder="Tell the story: Where did you find this? What inspired you to paint it?"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Location Type *</label>
+                    <select name="locationType" class="form-control" required>
+                        <option value="">Select location type</option>
+                        ${appState.locationTypes.map(type => `
+                            <option value="${type.toLowerCase()}">${type}</option>
+                        `).join('')}
+                    </select>
+                </div>
+
                 <div class="form-group">
                     <label>Location Name *</label>
-                    <input type="text" name="locationName" class="form-control" required placeholder="e.g., Central Park Bench">
+                    <input type="text" name="locationName" class="form-control" required 
+                           placeholder="e.g., Central Perk Cafe, NYC">
                 </div>
-                
+
                 <div class="form-group">
                     <label>City</label>
                     <input type="text" name="city" class="form-control" placeholder="City">
                 </div>
-                
+
                 <div class="form-group">
                     <label>State</label>
                     <input type="text" name="state" class="form-control" placeholder="State">
                 </div>
-                
+
                 <div class="form-group">
-                    <label>Location Type</label>
-                    <select name="locationType" class="form-control">
-                        <option value="outdoor">Outdoor</option>
-                        <option value="park">Park</option>
-                        <option value="trail">Trail</option>
-                        <option value="cafe">Cafe</option>
-                        <option value="bookstore">Bookstore</option>
-                        <option value="other">Other</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>Coordinates</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        <input type="number" name="latitude" step="any" class="form-control" placeholder="Latitude" required>
-                        <input type="number" name="longitude" step="any" class="form-control" placeholder="Longitude" required>
+                    <label>Coordinates *</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <label style="font-size: 0.85rem; color: var(--text-gray);">Latitude</label>
+                            <input type="number" name="latitude" step="any" class="form-control" 
+                                   placeholder="40.7589" required>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.85rem; color: var(--text-gray);">Longitude</label>
+                            <input type="number" name="longitude" step="any" class="form-control" 
+                                   placeholder="-73.9851" required>
+                        </div>
                     </div>
-                    <button type="button" class="btn btn-secondary" onclick="app.useCurrentLocation()" style="margin-top: 0.5rem; width: 100%;">
-                        Use Current Location
+                    
+                    <button type="button" class="btn btn-secondary" onclick="app.useCurrentLocation()" 
+                            style="width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <circle cx="12" cy="12" r="6"/>
+                            <circle cx="12" cy="12" r="2"/>
+                        </svg>
+                        Use My Current Location
                     </button>
                 </div>
-                
+
+                <!-- MAP CONTAINER - THIS WAS MISSING -->
+                <div class="form-group">
+                    <label>Location Preview</label>
+                    <div id="dropLocationMap" style="width: 100%; height: 300px; border-radius: 8px; border: 1px solid var(--border-gray); background: var(--light-gray);"></div>
+                    <small style="color: var(--text-gray); display: block; margin-top: 0.5rem;">
+                        Click on the map to set location or use "Get Current Location" button
+                    </small>
+                </div>
+
                 <div class="form-group">
                     <label>Materials (optional)</label>
-                    <input type="text" name="materials" class="form-control" placeholder="e.g., Stone, Acrylic Paint">
+                    <input type="text" name="materials" class="form-control" 
+                           placeholder="e.g., Stone, Acrylic Paint">
                 </div>
-                
-                <button type="submit" class="btn btn-primary btn-large" style="width: 100%; min-height: 56px;">
+
+                <button type="submit" class="btn btn-primary btn-large" 
+                        style="width: 100%; min-height: 56px; font-size: 18px;">
                     Create & Generate QR Tag
                 </button>
             </form>
@@ -3922,40 +3954,72 @@ selectDonationAmount(amount) {
 },
 
 useCurrentLocation() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            position => {
-                const lat = position.coords.latitude.toFixed(6);
-                const lon = position.coords.longitude.toFixed(6);
-                
-                // Update form fields
-                const latInput = document.getElementById('dropLatitude');
-                const lonInput = document.getElementById('dropLongitude');
-                
-                if (latInput) latInput.value = lat;
-                if (lonInput) lonInput.value = lon;
-                
-                // Update appState
-                appState.userLocation = {
-                    latitude: parseFloat(lat),
-                    longitude: parseFloat(lon)
-                };
-                
-                this.showToast('✅ Location captured!');
-                
-                // Update map if it exists
-                if (document.getElementById('dropLocationMap')) {
-                    this.updateDropLocationMap(parseFloat(lat), parseFloat(lon));
-                }
-            },
-            error => {
-                console.error('Geolocation error:', error);
-                this.showToast('❌ Unable to get location. Please enter manually.');
-            }
-        );
-    } else {
-        this.showToast('❌ Geolocation not supported. Please enter manually.');
+    if (!navigator.geolocation) {
+        this.showToast('Geolocation not supported. Please enter manually.');
+        return;
     }
+
+    this.showLoadingOverlay('Getting your location...');
+
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const lat = position.coords.latitude.toFixed(6);
+            const lon = position.coords.longitude.toFixed(6);
+
+            // Update form fields - make sure IDs match
+            const latInput = document.querySelector('[name="latitude"]');
+            const lonInput = document.querySelector('[name="longitude"]');
+
+            if (latInput) {
+                latInput.value = lat;
+                console.log('✅ Latitude field updated:', lat);
+            } else {
+                console.error('❌ Latitude input not found');
+            }
+
+            if (lonInput) {
+                lonInput.value = lon;
+                console.log('✅ Longitude field updated:', lon);
+            } else {
+                console.error('❌ Longitude input not found');
+            }
+
+            // Update appState
+            appState.userLocation = {
+                latitude: parseFloat(lat),
+                longitude: parseFloat(lon)
+            };
+
+            this.hideLoadingOverlay();
+            this.showToast('✅ Location captured!');
+
+            // Update map if it exists
+            const mapElement = document.getElementById('dropLocationMap');
+            if (mapElement && this.dropLocationMapInstance) {
+                this.updateDropLocationMap(parseFloat(lat), parseFloat(lon));
+            }
+        },
+        (error) => {
+            console.error('Geolocation error:', error);
+            this.hideLoadingOverlay();
+            
+            let message = 'Unable to get location. Please enter manually.';
+            if (error.code === 1) {
+                message = 'Location permission denied. Please enable location access.';
+            } else if (error.code === 2) {
+                message = 'Location unavailable. Please enter manually.';
+            } else if (error.code === 3) {
+                message = 'Location request timeout. Please try again.';
+            }
+            
+            this.showToast(message);
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        }
+    );
 },
 
 
@@ -5166,54 +5230,99 @@ useCurrentLocation() {
 
 
             initDropLocationMap() {
-                if (typeof L === 'undefined') {
-                    console.error('Leaflet library not loaded');
-                    return;
-                }
-                const mapEl = document.getElementById('dropLocationMap');
-                if (!mapEl) {
-                    console.error('Drop location map element not found');
-                    return;
-                }
-                
-                try {
-                    const map = L.map('dropLocationMap').setView([40.7589, -73.9851], 10);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '© OpenStreetMap contributors',
-                        maxZoom: 19
-                    }).addTo(map);
-                    
-                    // Force map to refresh size
-                    setTimeout(() => {
-                        map.invalidateSize();
-                    }, 100);
-                
-                let marker = L.marker([40.7589, -73.9851]).addTo(map);
-                
-                    map.on('click', (e) => {
-                        map.removeLayer(marker);
-                        marker = L.marker(e.latlng).addTo(map);
-                        document.getElementById('dropLatitude').value = e.latlng.lat.toFixed(6);
-                        document.getElementById('dropLongitude').value = e.latlng.lng.toFixed(6);
-                    });
-                    
-                    this.dropLocationMapInstance = map;
-                } catch (error) {
-                    console.error('Error initializing drop location map:', error);
-                }
-            },
+    if (typeof L === 'undefined') {
+        console.error('Leaflet library not loaded');
+        return;
+    }
+
+    const mapEl = document.getElementById('dropLocationMap');
+    if (!mapEl) {
+        console.error('Drop location map element not found');
+        return;
+    }
+
+    try {
+        // Use user location if available, otherwise default
+        const lat = appState.userLocation ? appState.userLocation.latitude : 40.7589;
+        const lon = appState.userLocation ? appState.userLocation.longitude : -73.9851;
+
+        const map = L.map('dropLocationMap').setView([lat, lon], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Force map to refresh size
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 100);
+
+        // Add click handler to place marker
+        let marker = null;
+        
+        // Add initial marker if user location exists
+        if (appState.userLocation) {
+            marker = L.marker([lat, lon]).addTo(map);
+        }
+
+        map.on('click', (e) => {
+            // Remove old marker
+            if (marker) {
+                map.removeLayer(marker);
+            }
+            
+            // Add new marker
+            marker = L.marker(e.latlng).addTo(map);
+            
+            // Update form fields
+            const latInput = document.querySelector('[name="latitude"]');
+            const lonInput = document.querySelector('[name="longitude"]');
+            
+            if (latInput) latInput.value = e.latlng.lat.toFixed(6);
+            if (lonInput) lonInput.value = e.latlng.lng.toFixed(6);
+            
+            console.log('✅ Location set:', e.latlng.lat.toFixed(6), e.latlng.lng.toFixed(6));
+        });
+
+        // Store map instance
+        this.dropLocationMapInstance = map;
+        
+        console.log('✅ Drop location map initialized');
+
+    } catch (error) {
+        console.error('Error initializing drop location map:', error);
+    }
+},
 
             updateDropLocationMap(lat, lng) {
-                if (this.dropLocationMapInstance) {
-                    try {
-                        this.dropLocationMapInstance.setView([lat, lng], 13);
-                        L.marker([lat, lng]).addTo(this.dropLocationMapInstance);
-                        this.dropLocationMapInstance.invalidateSize();
-                    } catch (error) {
-                        console.error('Error updating drop location map:', error);
-                    }
-                }
-            },
+    if (!this.dropLocationMapInstance) {
+        console.warn('Map instance not initialized');
+        return;
+    }
+
+    try {
+        // Center map on new location
+        this.dropLocationMapInstance.setView([lat, lng], 13);
+        
+        // Remove all existing layers except tile layer
+        this.dropLocationMapInstance.eachLayer((layer) => {
+            if (layer instanceof L.Marker) {
+                this.dropLocationMapInstance.removeLayer(layer);
+            }
+        });
+        
+        // Add new marker
+        L.marker([lat, lng]).addTo(this.dropLocationMapInstance);
+        
+        // Refresh map size
+        this.dropLocationMapInstance.invalidateSize();
+        
+        console.log('✅ Map updated to:', lat, lng);
+    } catch (error) {
+        console.error('Error updating drop location map:', error);
+    }
+},
 
             initArtStoryMap(dropId) {
                 if (typeof L === 'undefined') {
